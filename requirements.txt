@@ -1,0 +1,34 @@
+# Core FastAPI dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# Database dependencies
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+psycopg2-binary>=2.9.0  # PostgreSQL driver
+sqlite3  # For development/testing
+
+# Authentication and security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# Environment and configuration
+python-dotenv>=1.0.0
+
+# Existing dependencies (inferred from current code)
+# Google Gemini API client - uncomment if using specific client library
+# google-generativeai
+
+# Optional: Additional database drivers
+# mysql-connector-python  # For MySQL
+# asyncpg  # For async PostgreSQL
+
+# Development dependencies (optional)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0  # For testing FastAPI endpoints
+
+# Data handling
+python-dateutil>=2.8.0
