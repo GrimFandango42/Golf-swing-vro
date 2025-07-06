@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Include user preferences and recordings -->
+        <include domain="sharedpref" path="user_preferences.xml"/>
+        <include domain="file" path="recordings/"/>
+        
+        <!-- Exclude sensitive data -->
+        <exclude domain="sharedpref" path="secure_prefs.xml"/>
+        <exclude domain="database" path="secure.db"/>
+    </cloud-backup>
+    
+    <device-transfer>
+        <!-- Include all user data for device transfers -->
+        <include domain="sharedpref" path="."/>
+        <include domain="file" path="."/>
+        <include domain="database" path="."/>
+        
+        <!-- Exclude temporary and cache data -->
+        <exclude domain="file" path="temp/"/>
+        <exclude domain="file" path="cache/"/>
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="golf_clubs">
+        <item>Driver</item>
+        <item>3-Wood</item>
+        <item>5-Wood</item>
+        <item>Hybrid</item>
+        <item>3-Iron</item>
+        <item>4-Iron</item>
+        <item>5-Iron</item>
+        <item>6-Iron</item>
+        <item>7-Iron</item>
+        <item>8-Iron</item>
+        <item>9-Iron</item>
+        <item>Pitching Wedge</item>
+        <item>Sand Wedge</item>
+        <item>Lob Wedge</item>
+        <item>Putter</item>
+    </string-array>
+</resources>

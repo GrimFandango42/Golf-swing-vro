@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SwingSync AI</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_camera">Camera</string>
+    <string name="nav_analysis">Analysis</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Camera -->
+    <string name="camera_permission_required">Camera permission is required to record swings</string>
+    <string name="audio_permission_required">Audio permission is required for voice coaching</string>
+    <string name="storage_permission_required">Storage permission is required to save videos</string>
+    
+    <!-- Voice Coaching -->
+    <string name="voice_coaching_enabled">Voice coaching enabled</string>
+    <string name="voice_coaching_disabled">Voice coaching disabled</string>
+    
+    <!-- Swing Analysis -->
+    <string name="swing_analysis_processing">Processing swing analysis...</string>
+    <string name="swing_analysis_complete">Swing analysis complete</string>
+    <string name="swing_score">Swing Score: %1$d%%</string>
+    
+    <!-- Swing Phases -->
+    <string name="phase_address">Address</string>
+    <string name="phase_backswing">Backswing</string>
+    <string name="phase_downswing">Downswing</string>
+    <string name="phase_impact">Impact</string>
+    <string name="phase_follow_through">Follow Through</string>
+    
+    <!-- Error Messages -->
+    <string name="error_camera_init">Failed to initialize camera</string>
+    <string name="error_recording_start">Failed to start recording</string>
+    <string name="error_recording_stop">Failed to stop recording</string>
+    <string name="error_network">Network error occurred</string>
+    <string name="error_unknown">An unknown error occurred</string>
+    
+    <!-- Success Messages -->
+    <string name="recording_started">Recording started</string>
+    <string name="recording_stopped">Recording stopped</string>
+    <string name="analysis_saved">Analysis saved successfully</string>
+    
+    <!-- Settings -->
+    <string name="settings_video_quality">Video Quality</string>
+    <string name="settings_analysis_sensitivity">Analysis Sensitivity</string>
+    <string name="settings_voice_coaching">Voice Coaching</string>
+    <string name="settings_auto_record">Auto Record</string>
+    <string name="settings_offline_mode">Offline Mode</string>
+    
+    <!-- Profile -->
+    <string name="profile_name">Name</string>
+    <string name="profile_email">Email</string>
+    <string name="profile_handicap">Handicap</string>
+    <string name="profile_dominant_hand">Dominant Hand</string>
+    <string name="profile_height">Height (cm)</string>
+    <string name="profile_weight">Weight (kg)</string>
+    <string name="profile_experience">Experience Level</string>
+    
+    <!-- Stats -->
+    <string name="stats_total_swings">Total Swings</string>
+    <string name="stats_average_score">Average Score</string>
+    <string name="stats_best_score">Best Score</string>
+    <string name="stats_weekly_swings">This Week</string>
+    
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">Welcome to SwingSync AI</string>
+    <string name="onboarding_description">Your personal golf swing coach powered by AI</string>
+    <string name="onboarding_get_started">Get Started</string>
+</resources>

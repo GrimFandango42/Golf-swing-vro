@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Golf-themed colors -->
+    <color name="golf_green">#2E7D32</color>
+    <color name="golf_green_dark">#1B5E20</color>
+    <color name="golf_green_light">#66BB6A</color>
+    
+    <color name="golf_blue">#1976D2</color>
+    <color name="golf_blue_dark">#0D47A1</color>
+    <color name="golf_blue_light">#42A5F5</color>
+    
+    <color name="golf_gold">#FFB300</color>
+    <color name="golf_gold_dark">#E65100</color>
+    <color name="golf_gold_light">#FFC107</color>
+    
+    <!-- Surface colors -->
+    <color name="golf_surface">#F5F5F5</color>
+    <color name="golf_surface_dark">#121212</color>
+    <color name="golf_surface_variant">#E8F5E8</color>
+    
+    <!-- Standard colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="gray">#9E9E9E</color>
+    <color name="error">#D32F2F</color>
+    
+    <!-- Material 3 colors -->
+    <color name="purple_80">#D0BCFF</color>
+    <color name="purple_grey_80">#CCC2DC</color>
+    <color name="pink_80">#EFB8C8</color>
+    
+    <color name="purple_40">#6650a4</color>
+    <color name="purple_grey_40">#625b71</color>
+    <color name="pink_40">#7D5260</color>
+</resources>

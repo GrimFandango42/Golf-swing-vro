@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black"
+    tools:context=".ui.camera.CameraActivity">
+
+    <!-- Camera Preview -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/cameraPreview"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@+id/controlsContainer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Pose Overlay View -->
+    <com.swingsync.ai.ui.camera.PoseOverlayView
+        android:id="@+id/poseOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/cameraPreview"
+        app:layout_constraintEnd_toEndOf="@+id/cameraPreview"
+        app:layout_constraintStart_toStartOf="@+id/cameraPreview"
+        app:layout_constraintTop_toTopOf="@+id/cameraPreview" />
+
+    <!-- Status Overlay -->
+    <LinearLayout
+        android:id="@+id/statusOverlay"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:background="@color/camera_overlay_background"
+        android:orientation="vertical"
+        android:padding="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/tvPoseStatus"
+            style="@style/SwingSyncText.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/no_pose_detected"
+            android:textColor="@color/white"
+            android:drawableStart="@drawable/ic_person_outline"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical" />
+
+        <TextView
+            android:id="@+id/tvFrameRate"
+            style="@style/SwingSyncText.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/frame_rate"
+            android:textColor="@color/white"
+            android:drawableStart="@drawable/ic_speed"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical" />
+
+        <TextView
+            android:id="@+id/tvRecordingTime"
+            style="@style/SwingSyncText.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="00:00"
+            android:textColor="@color/recording_indicator"
+            android:visibility="gone"
+            android:drawableStart="@drawable/ic_record"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical" />
+
+    </LinearLayout>
+
+    <!-- Controls Container -->
+    <LinearLayout
+        android:id="@+id/controlsContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="32dp"
+        android:background="@color/camera_overlay_background"
+        android:orientation="vertical"
+        android:padding="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <!-- Club Selection -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/SwingSyncText.Body"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Club:"
+                android:textColor="@color/white" />
+
+            <Spinner
+                android:id="@+id/spinnerClubSelection"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:entries="@array/golf_clubs"
+                android:minHeight="48dp" />
+
+        </LinearLayout>
+
+        <!-- Recording Controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnRecord"
+                style="@style/SwingSyncButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="@string/start_recording"
+                android:drawableStart="@drawable/ic_record"
+                android:drawablePadding="8dp" />
+
+            <Button
+                android:id="@+id/btnAnalyze"
+                style="@style/SwingSyncButton.Secondary"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/button_start_analysis"
+                android:enabled="false"
+                android:drawableStart="@drawable/ic_analytics"
+                android:drawablePadding="8dp" />
+
+        </LinearLayout>
+
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="12dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
