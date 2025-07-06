@@ -1,24 +1,26 @@
 """
-Module for Golf Swing Fault Detection Logic.
+Module for Enhanced Golf Swing Fault Detection Logic with Club-Specific Rules.
 
 This module is responsible for identifying common golf swing faults by comparing
-extracted Biomechanical KPIs (from `kpi_extraction.py`) against a predefined
-set of rules known as the `FAULT_DIAGNOSIS_MATRIX`.
+extracted Biomechanical KPIs (from `kpi_extraction.py`) against dynamically
+selected, club-specific fault detection rules.
 
-The core function `check_swing_faults` iterates through this matrix, evaluates
-conditions based on KPI values, and generates a list of `DetectedFault` objects
-if deviations are found.
+The enhanced fault detection system includes:
+- Club-specific fault detection matrices for different club types (Driver, Irons, Wedges)
+- Dynamic rule selection based on the club_used field in input data
+- Club-specific ideal ranges and thresholds for each biomechanical metric
+- Sophisticated severity calculations with club-specific context
+- Club-specific common faults and their detection patterns
 
-The `FAULT_DIAGNOSIS_MATRIX` is central to this module. Each entry in the matrix
-defines:
-- The P-System position and biomechanical metric to check.
-- The condition (e.g., outside a range, less than a threshold) that signifies a fault.
-- Details of the fault to report (ID, name, description).
-- A key to an LLM prompt template for generating coaching feedback.
-- Optional severity calculation logic.
+Key Features:
+- Driver: Optimized for upward angle of attack, specific weight distribution patterns
+- Irons: Configured for steeper angle of attack, forward ball position requirements
+- Wedges: Tuned for even steeper approach angles, centered ball position
+- Dynamic fault matrix selection based on club type
+- Enhanced severity scoring with club-specific context
 
-This matrix is designed to be extensible, allowing new fault detection rules
-to be added as more KPIs become available or coaching knowledge is refined.
+The core function `check_swing_faults` now dynamically selects appropriate rules
+based on the club_used field and applies club-specific thresholds and expectations.
 """
 from typing import List, Dict, Any, Optional
 
@@ -29,7 +31,7 @@ from data_structures import (
     FaultDiagnosisMatrixEntry, # Re-defined here for clarity, or could be imported if centralized
     KPIDeviation
 )
-from kpi_extraction import EXPECTED_KEYPOINTS # For reference if needed
+# from kpi_extraction import EXPECTED_KEYPOINTS # For reference if needed - removed to avoid numpy dependency
 
 # Re-defining FaultDiagnosisMatrixEntry for local use or it could be a shared model
 # For simplicity, assuming it's defined as in data_structures.py
@@ -39,19 +41,297 @@ from kpi_extraction import EXPECTED_KEYPOINTS # For reference if needed
 # This matrix defines the rules for detecting faults.
 # In a real application, this would likely be loaded from a configuration file (JSON, YAML) or database.
 
+# --- Club Type Classification ---
+
+def classify_club_type(club_used: str) -> str:
+    """
+    Classifies the club into one of three main categories for fault detection.
+    
+    Args:
+        club_used: String description of the club (e.g., "Driver", "7-Iron", "Sand Wedge")
+    
+    Returns:
+        Club type category: "driver", "iron", or "wedge"
+    """
+    club_lower = club_used.lower().strip()
+    
+    # Driver classification
+    if any(keyword in club_lower for keyword in ["driver", "1-wood", "1 wood"]):
+        return "driver"
+    
+    # Wedge classification
+    wedge_keywords = ["wedge", "sand", "lob", "gap", "pitching", "pw", "sw", "lw", "gw"]
+    if any(keyword in club_lower for keyword in wedge_keywords):
+        return "wedge"
+    
+    # Iron classification (includes hybrids and fairway woods as similar swing characteristics)
+    iron_keywords = ["iron", "hybrid", "wood", "utility"]
+    if any(keyword in club_lower for keyword in iron_keywords) or any(char.isdigit() for char in club_lower):
+        return "iron"
+    
+    # Default to iron if unclear
+    return "iron"
+
+# --- Club-Specific Constants ---
+
+# Club-specific weight distribution targets (lead foot percentage)
+WEIGHT_DISTRIBUTION_TARGETS = {
+    "driver": {"ideal": 40.0, "range": (35.0, 45.0)},    # More weight on trail foot for upward attack
+    "iron": {"ideal": 50.0, "range": (45.0, 55.0)},      # Balanced for neutral attack
+    "wedge": {"ideal": 55.0, "range": (50.0, 60.0)}      # Slightly forward for downward attack
+}
+
+# Club-specific hip hinge angle targets (degrees from vertical)
+HIP_HINGE_TARGETS = {
+    "driver": {"ideal": 35.0, "range": (30.0, 40.0)},    # Less hip hinge for driver
+    "iron": {"ideal": 37.5, "range": (32.5, 42.5)},      # Standard hip hinge
+    "wedge": {"ideal": 40.0, "range": (35.0, 45.0)}      # More hip hinge for control
+}
+
+# Club-specific shoulder rotation targets at P4 (degrees)
+SHOULDER_ROTATION_TARGETS = {
+    "driver": {"minimum": 85.0, "ideal": 95.0},           # Full turn for power
+    "iron": {"minimum": 80.0, "ideal": 90.0},             # Good turn for consistency
+    "wedge": {"minimum": 75.0, "ideal": 85.0}             # Shorter swing for control
+}
+
+# Club-specific knee flexion targets (degrees)
+KNEE_FLEX_TARGETS = {
+    "driver": {"range": (15.0, 25.0)},                    # Athletic posture
+    "iron": {"range": (15.0, 25.0)},                      # Standard range
+    "wedge": {"range": (18.0, 28.0)}                      # Slightly more flex for control
+}
+
+# Club-specific lead wrist angle targets at P4 (degrees - positive = cupped/extended)
+LEAD_WRIST_TARGETS = {
+    "driver": {"max_cupping": 8.0},                       # Less tolerance for cupping
+    "iron": {"max_cupping": 10.0},                        # Standard tolerance
+    "wedge": {"max_cupping": 12.0}                        # More tolerance for feel shots
+}
+
 # Placeholders for KPIs not yet fully implemented in kpi_extraction.py
 # These are used to demonstrate how the fault matrix would handle them.
-PLACEHOLDER_LEAD_WRIST_ANGLE_P4 = "LeadWristAngleP4"
-PLACEHOLDER_HIP_LATERAL_SWAY_P4 = "HipLateralSwayP4" # Positive for sway away from target (RH golfer)
-PLACEHOLDER_SPINE_ANGLE_REVERSE_P4 = "SpineAngleReverseP4" # Positive if leaning towards target
+PLACEHOLDER_LEAD_WRIST_ANGLE_P4 = "Lead Wrist Angle at P4"
+PLACEHOLDER_HIP_LATERAL_SWAY_P4 = "Hip Lateral Sway at P4" # Positive for sway away from target (RH golfer)
+PLACEHOLDER_SPINE_ANGLE_REVERSE_P4 = "Reverse Spine Angle at P4" # Positive if leaning towards target
 
+# --- Dynamic Fault Matrix Generation ---
+
+def generate_club_specific_fault_matrix(club_type: str) -> List[FaultDiagnosisMatrixEntry]:
+    """
+    Generates a club-specific fault detection matrix based on the club type.
+    
+    Args:
+        club_type: The classified club type ("driver", "iron", or "wedge")
+    
+    Returns:
+        List of fault detection matrix entries tailored for the specific club type
+    """
+    matrix = []
+    
+    # Club-specific hip hinge rule at P1
+    hip_hinge_targets = HIP_HINGE_TARGETS[club_type]
+    matrix.append({
+        "entry_id": f"FD001_{club_type.upper()}",
+        "p_position_focused": "P1",
+        "biomechanical_metric_checked": "Hip Hinge Angle (Spine from Vertical)",
+        "condition_type": "outside_range",
+        "condition_values": {"lower_bound": hip_hinge_targets["range"][0], 
+                           "upper_bound": hip_hinge_targets["range"][1]},
+        "fault_to_report_id": f"IMPROPER_POSTURE_HIP_HINGE_P1_{club_type.upper()}",
+        "fault_name": f"Improper Hip Hinge at Address ({club_type.title()})",
+        "fault_description": f"Your posture at address with a {club_type} shows incorrect forward tilt from the hips. "
+                           f"For {club_type}s, optimal hip hinge should be between {hip_hinge_targets['range'][0]:.1f}° "
+                           f"and {hip_hinge_targets['range'][1]:.1f}° for proper balance and swing mechanics.",
+        "llm_prompt_template_key": f"IMPROPER_HIP_HINGE_P1_{club_type.upper()}_PROMPT",
+        "club_type": club_type,
+        "severity_levels": [
+            {"threshold_from_ideal_percent": 15, "severity": 0.3},
+            {"threshold_from_ideal_percent": 30, "severity": 0.6},
+            {"threshold_from_ideal_percent": 50, "severity": 0.9},
+        ]
+    })
+    
+    # Club-specific knee flexion rules at P1
+    knee_targets = KNEE_FLEX_TARGETS[club_type]
+    for leg_side in ["Left", "Right"]:
+        matrix.append({
+            "entry_id": f"FD002_{leg_side[0]}_{club_type.upper()}",
+            "p_position_focused": "P1",
+            "biomechanical_metric_checked": f"{leg_side} Knee Flexion Angle",
+            "condition_type": "outside_range",
+            "condition_values": {"lower_bound": knee_targets["range"][0], 
+                               "upper_bound": knee_targets["range"][1]},
+            "fault_to_report_id": f"IMPROPER_KNEE_FLEX_P1_{leg_side.upper()}_{club_type.upper()}",
+            "fault_name": f"Improper {leg_side} Knee Flex at Address ({club_type.title()})",
+            "fault_description": f"Your {leg_side.lower()} knee flexion at address with a {club_type} is outside "
+                               f"the optimal range. For {club_type}s, proper knee flex should be between "
+                               f"{knee_targets['range'][0]:.1f}° and {knee_targets['range'][1]:.1f}° to maintain "
+                               f"athletic posture and enable proper weight transfer.",
+            "llm_prompt_template_key": f"IMPROPER_KNEE_FLEX_P1_{leg_side.upper()}_{club_type.upper()}_PROMPT",
+            "club_type": club_type,
+        })
+    
+    # Club-specific weight distribution rule at P1
+    weight_targets = WEIGHT_DISTRIBUTION_TARGETS[club_type]
+    matrix.append({
+        "entry_id": f"FD003_{club_type.upper()}",
+        "p_position_focused": "P1",
+        "biomechanical_metric_checked": "Estimated Weight Distribution (Lead Foot %)",
+        "condition_type": "outside_range",
+        "condition_values": {"lower_bound": weight_targets["range"][0], 
+                           "upper_bound": weight_targets["range"][1]},
+        "fault_to_report_id": f"IMPROPER_WEIGHT_DISTRIBUTION_P1_{club_type.upper()}",
+        "fault_name": f"Improper Weight Distribution at Address ({club_type.title()})",
+        "fault_description": f"Your weight distribution at address with a {club_type} is not optimal. "
+                           f"For {club_type}s, weight should be distributed with {weight_targets['ideal']:.0f}% "
+                           f"on the lead foot (range: {weight_targets['range'][0]:.0f}%-{weight_targets['range'][1]:.0f}%). "
+                           f"This setup promotes the proper angle of attack for this club type.",
+        "llm_prompt_template_key": f"IMPROPER_WEIGHT_DIST_P1_{club_type.upper()}_PROMPT",
+        "club_type": club_type,
+    })
+    
+    # Club-specific shoulder rotation rule at P4
+    shoulder_targets = SHOULDER_ROTATION_TARGETS[club_type]
+    matrix.append({
+        "entry_id": f"FD004_{club_type.upper()}",
+        "p_position_focused": "P4",
+        "biomechanical_metric_checked": "Shoulder Rotation at P4 (relative to Address)",
+        "condition_type": "less_than",
+        "condition_values": {"threshold": shoulder_targets["minimum"]},
+        "fault_to_report_id": f"INSUFFICIENT_SHOULDER_TURN_P4_{club_type.upper()}",
+        "fault_name": f"Insufficient Shoulder Turn at Top ({club_type.title()})",
+        "fault_description": f"Your shoulder rotation at the top of the backswing with a {club_type} appears restricted. "
+                           f"For {club_type}s, a minimum of {shoulder_targets['minimum']:.0f}° shoulder turn "
+                           f"(ideally {shoulder_targets['ideal']:.0f}°) is recommended for optimal power generation "
+                           f"and proper swing sequence.",
+        "llm_prompt_template_key": f"INSUFFICIENT_SHOULDER_TURN_P4_{club_type.upper()}_PROMPT",
+        "club_type": club_type,
+    })
+    
+    # Club-specific lead wrist rule at P4
+    wrist_targets = LEAD_WRIST_TARGETS[club_type]
+    matrix.append({
+        "entry_id": f"FD005_{club_type.upper()}",
+        "p_position_focused": "P4",
+        "biomechanical_metric_checked": PLACEHOLDER_LEAD_WRIST_ANGLE_P4,
+        "condition_type": "greater_than",
+        "condition_values": {"threshold": wrist_targets["max_cupping"]},
+        "fault_to_report_id": f"CUPPED_WRIST_AT_TOP_P4_{club_type.upper()}",
+        "fault_name": f"Cupped Lead Wrist at Top ({club_type.title()})",
+        "fault_description": f"Your lead wrist is excessively cupped at the top of the backswing with a {club_type}. "
+                           f"For {club_type}s, the lead wrist should be no more than {wrist_targets['max_cupping']:.0f}° "
+                           f"cupped to maintain proper clubface control and prevent slices or pushes.",
+        "llm_prompt_template_key": f"CUPPED_WRIST_P4_{club_type.upper()}_PROMPT",
+        "club_type": club_type,
+    })
+    
+    # Universal faults that apply to all club types with same thresholds
+    universal_faults = [
+        {
+            "entry_id": f"FD006_{club_type.upper()}",
+            "p_position_focused": "P4",
+            "biomechanical_metric_checked": PLACEHOLDER_HIP_LATERAL_SWAY_P4,
+            "condition_type": "greater_than",
+            "condition_values": {"threshold": 0.15},  # 15cm lateral sway
+            "fault_to_report_id": f"HIP_SWAY_BACKSWING_{club_type.upper()}",
+            "fault_name": f"Hip Sway During Backswing ({club_type.title()})",
+            "fault_description": f"Your hips are swaying laterally during the backswing with your {club_type}, "
+                               f"rather than rotating around a stable center. This can lead to inconsistent contact "
+                               f"and reduced power generation.",
+            "llm_prompt_template_key": f"HIP_SWAY_BACKSWING_{club_type.upper()}_PROMPT",
+            "club_type": club_type,
+        },
+        {
+            "entry_id": f"FD007_{club_type.upper()}",
+            "p_position_focused": "P4",
+            "biomechanical_metric_checked": PLACEHOLDER_SPINE_ANGLE_REVERSE_P4,
+            "condition_type": "greater_than",
+            "condition_values": {"threshold": 10.0},  # 10° reverse spine
+            "fault_to_report_id": f"REVERSE_SPINE_ANGLE_P4_{club_type.upper()}",
+            "fault_name": f"Reverse Spine Angle at Top ({club_type.title()})",
+            "fault_description": f"At the top of your backswing with a {club_type}, your upper body is tilting "
+                               f"towards the target (reverse spine angle). This common fault can cause inconsistent "
+                               f"contact and reduce power while increasing injury risk.",
+            "llm_prompt_template_key": f"REVERSE_SPINE_ANGLE_P4_{club_type.upper()}_PROMPT",
+            "club_type": club_type,
+        }
+    ]
+    
+    matrix.extend(universal_faults)
+    
+    # Add club-specific advanced fault rules
+    if club_type == "driver":
+        matrix.extend(_get_driver_specific_faults())
+    elif club_type == "wedge":
+        matrix.extend(_get_wedge_specific_faults())
+    else:  # iron
+        matrix.extend(_get_iron_specific_faults())
+    
+    return matrix
+
+def _get_driver_specific_faults() -> List[FaultDiagnosisMatrixEntry]:
+    """Returns driver-specific fault detection rules."""
+    return [
+        {
+            "entry_id": "FD_DRIVER_001",
+            "p_position_focused": "P1",
+            "biomechanical_metric_checked": "Spine Angle at P1",
+            "condition_type": "greater_than",
+            "condition_values": {"threshold": 25.0},  # More upright for driver
+            "fault_to_report_id": "EXCESSIVE_SPINE_TILT_DRIVER_P1",
+            "fault_name": "Excessive Forward Spine Tilt (Driver)",
+            "fault_description": "Your spine angle at address with the driver shows excessive forward tilt. "
+                               "Drivers benefit from a more upright spine angle to promote an upward angle of attack.",
+            "llm_prompt_template_key": "EXCESSIVE_SPINE_TILT_DRIVER_P1_PROMPT",
+            "club_type": "driver",
+        }
+    ]
+
+def _get_iron_specific_faults() -> List[FaultDiagnosisMatrixEntry]:
+    """Returns iron-specific fault detection rules."""
+    return [
+        {
+            "entry_id": "FD_IRON_001",
+            "p_position_focused": "P1",
+            "biomechanical_metric_checked": "Estimated Weight Distribution (Lead Foot %)",
+            "condition_type": "less_than",
+            "condition_values": {"threshold": 42.0},  # Too much weight on trail foot for irons
+            "fault_to_report_id": "EXCESSIVE_TRAIL_WEIGHT_IRON_P1",
+            "fault_name": "Excessive Trail Foot Weight (Iron)",
+            "fault_description": "Your weight distribution shows too much weight on the trail foot for iron play. "
+                               "Irons require more balanced or slightly forward weight for proper ball-first contact.",
+            "llm_prompt_template_key": "EXCESSIVE_TRAIL_WEIGHT_IRON_P1_PROMPT",
+            "club_type": "iron",
+        }
+    ]
+
+def _get_wedge_specific_faults() -> List[FaultDiagnosisMatrixEntry]:
+    """Returns wedge-specific fault detection rules."""
+    return [
+        {
+            "entry_id": "FD_WEDGE_001",
+            "p_position_focused": "P4",
+            "biomechanical_metric_checked": "Shoulder Rotation at P4 (relative to Address)",
+            "condition_type": "greater_than",
+            "condition_values": {"threshold": 95.0},  # Too much turn for wedge control
+            "fault_to_report_id": "EXCESSIVE_SHOULDER_TURN_WEDGE_P4",
+            "fault_name": "Excessive Shoulder Turn (Wedge)",
+            "fault_description": "Your shoulder rotation at the top is excessive for wedge play. "
+                               "Wedges benefit from a more controlled, shorter backswing for better distance control.",
+            "llm_prompt_template_key": "EXCESSIVE_SHOULDER_TURN_WEDGE_P4_PROMPT",
+            "club_type": "wedge",
+        }
+    ]
+
+# Legacy matrix kept for backwards compatibility
 FAULT_DIAGNOSIS_MATRIX: List[FaultDiagnosisMatrixEntry] = [
     {
         "entry_id": "FD001",
         "p_position_focused": "P1",
         "biomechanical_metric_checked": "Hip Hinge Angle (Spine from Vertical)",
         "condition_type": "outside_range",
-        "condition_values": {"lower_bound": 30.0, "upper_bound": 45.0}, # Ideal range from requirements
+        "condition_values": {"lower_bound": 30.0, "upper_bound": 45.0},
         "fault_to_report_id": "IMPROPER_POSTURE_HIP_HINGE_P1",
         "fault_name": "Improper Hip Hinge at Address",
         "fault_description": "Your posture at address shows an incorrect forward tilt from the hips (hip hinge). Too little hinge (standing too upright) or too much hinge (bending over too much) can negatively affect your balance, power, and swing mechanics throughout the entire motion.",
@@ -62,135 +342,121 @@ FAULT_DIAGNOSIS_MATRIX: List[FaultDiagnosisMatrixEntry] = [
             {"threshold_from_ideal_percent": 100, "severity": 0.9},
         ]
     },
-    {
-        "entry_id": "FD002",
-        "p_position_focused": "P1",
-        "biomechanical_metric_checked": "Left Knee Flexion Angle",
-        "condition_type": "outside_range",
-        "condition_values": {"lower_bound": 15.0, "upper_bound": 25.0},
-        "fault_to_report_id": "IMPROPER_KNEE_FLEX_P1", # Can map to same general fault ID
-        "fault_name": "Improper Knee Flex at Address (Lead Leg)",
-        "fault_description": "The amount of flex in your lead knee at address is outside the optimal range. Correct knee flex is important for maintaining an athletic posture, enabling proper body rotation, and ensuring stability.",
-        "llm_prompt_template_key": "IMPROPER_KNEE_FLEX_P1_LEAD_PROMPT",
-    },
-    {
-        "entry_id": "FD003",
-        "p_position_focused": "P1",
-        "biomechanical_metric_checked": "Right Knee Flexion Angle",
-        "condition_type": "outside_range",
-        "condition_values": {"lower_bound": 15.0, "upper_bound": 25.0},
-        "fault_to_report_id": "IMPROPER_KNEE_FLEX_P1",
-        "fault_name": "Improper Knee Flex at Address (Trail Leg)",
-        "fault_description": "The amount of flex in your trail knee at address is outside the optimal range. Correct knee flex helps maintain balance, supports weight transfer, and contributes to a stable lower body during the swing.",
-        "llm_prompt_template_key": "IMPROPER_KNEE_FLEX_P1_TRAIL_PROMPT",
-    },
-    {
-        "entry_id": "FD004",
-        "p_position_focused": "P4",
-        "biomechanical_metric_checked": "Shoulder Rotation at P4 (relative to Address)",
-        "condition_type": "less_than",
-        "condition_values": {"threshold": 80.0}, # Ideal is ~90 deg, fault if < 80 deg
-        "fault_to_report_id": "INSUFFICIENT_SHOULDER_TURN_P4",
-        "fault_name": "Insufficient Shoulder Turn at Top of Backswing",
-        "fault_description": "Your shoulder rotation at the top of the backswing (P4) appears restricted. A full shoulder turn (around 90 degrees for most players) is vital for generating maximum power and ensuring a properly sequenced downswing.",
-        "llm_prompt_template_key": "INSUFFICIENT_SHOULDER_TURN_P4_PROMPT",
-    },
-    {
-        "entry_id": "FD005",
-        "p_position_focused": "P4",
-        "biomechanical_metric_checked": PLACEHOLDER_LEAD_WRIST_ANGLE_P4,
-        "condition_type": "greater_than", # Positive values = extension/cupping
-        "condition_values": {"threshold": 10.0}, # Stricter: fault if > 10 deg cupped (was 15)
-        "fault_to_report_id": "CUPPED_WRIST_AT_TOP_P4",
-        "fault_name": "Cupped Lead Wrist at Top of Backswing",
-        "fault_description": "Your lead wrist is excessively extended (cupped) at the top of the backswing (P4). This common fault often leads to an open clubface at impact, resulting in slices or pushed shots, and can reduce power.",
-        "llm_prompt_template_key": "CUPPED_WRIST_P4_PROMPT",
-    },
-    {
-        "entry_id": "FD006",
-        "p_position_focused": "P1",
-        "biomechanical_metric_checked": "Estimated Weight Distribution (Lead Foot %)",
-        # This rule should ideally be dynamic based on club_used.
-        # For now, assuming irons (50/50). A more complex rule engine could handle this.
-        "condition_type": "outside_range", # For irons
-        "condition_values": {"lower_bound": 45.0, "upper_bound": 55.0},
-        "fault_to_report_id": "IMPROPER_WEIGHT_DISTRIBUTION_P1_IRONS", # Specific for irons
-        "fault_name": "Improper Weight Distribution at Address (Irons)",
-        "fault_description": "Your weight distribution at address with an iron is not balanced correctly (ideally 50/50 on lead/trail foot). Proper balance is key for consistent strikes and effective weight transfer.",
-        "llm_prompt_template_key": "IMPROPER_WEIGHT_DIST_P1_IRONS_PROMPT"
-    },
-    # Rule for Driver Weight Distribution (FD006B - example of club-specific)
-    # To implement this properly, the fault detection logic would need to check swing_input['club_used']
-    # or have separate KPI variants. For now, this is illustrative.
-    # {
-    #     "entry_id": "FD006B",
-    #     "p_position_focused": "P1",
-    #     "biomechanical_metric_checked": "Estimated Weight Distribution (Lead Foot %)",
-    #     "condition_type": "outside_range", # For Driver, e.g. 40% lead, 60% trail
-    #     "condition_values": {"lower_bound": 35.0, "upper_bound": 45.0},
-    #     "fault_to_report_id": "IMPROPER_WEIGHT_DISTRIBUTION_P1_DRIVER",
-    #     "fault_name": "Improper Weight Distribution at Address (Driver)",
-    #     "fault_description": "Your weight distribution at address with a driver is not optimal (ideally around 40% on lead, 60% on trail). This setup promotes an upward angle of attack.",
-    #     "llm_prompt_template_key": "IMPROPER_WEIGHT_DIST_P1_DRIVER_PROMPT"
-    # },
-    {
-        "entry_id": "FD007",
-        "p_position_focused": "P4", # Or during backswing P2-P4
-        "biomechanical_metric_checked": PLACEHOLDER_HIP_LATERAL_SWAY_P4, # Sway = excessive lateral motion
-        "condition_type": "greater_than", # Assuming positive value means sway away from target for RH
-        "condition_values": {"threshold": 0.15}, # e.g., > 0.15 meters (15cm) of lateral hip shift from P1 center
-        "fault_to_report_id": "HIP_SWAY_BACKSWING",
-        "fault_name": "Hip Sway During Backswing",
-        "fault_description": "Your hips appear to be swaying laterally (away from the target) during the backswing, rather than rotating around a stable center. This can lead to inconsistency, loss of power, and difficulty returning the club to the ball squarely.",
-        "llm_prompt_template_key": "HIP_SWAY_BACKSWING_PROMPT",
-    },
-    {
-        "entry_id": "FD008",
-        "p_position_focused": "P4",
-        "biomechanical_metric_checked": PLACEHOLDER_SPINE_ANGLE_REVERSE_P4, # Reverse spine = upper body tilt to target
-        "condition_type": "greater_than", # Assuming positive value indicates reverse tilt towards target
-        "condition_values": {"threshold": 10.0}, # e.g., > 10 degrees of spine tilt towards target
-        "fault_to_report_id": "REVERSE_SPINE_ANGLE_P4",
-        "fault_name": "Reverse Spine Angle at Top of Backswing",
-        "fault_description": "At the top of your backswing (P4), your upper body appears to be tilting towards the target, known as a 'reverse spine angle'. This common fault can cause inconsistent contact, loss of power, and put strain on your lower back.",
-        "llm_prompt_template_key": "REVERSE_SPINE_ANGLE_P4_PROMPT",
-    },
 ]
 
-# --- Fault Detection Function ---
+# --- Enhanced Fault Detection Functions ---
 
-def _calculate_severity(kpi_value: float, rule: FaultDiagnosisMatrixEntry) -> Optional[float]:
+def _calculate_club_specific_severity(
+    kpi_value: float, 
+    rule: FaultDiagnosisMatrixEntry, 
+    club_type: str
+) -> Optional[float]:
     """
-    Calculates severity based on the rule's severity_levels.
-    This is a placeholder for more sophisticated severity calculation.
+    Calculates severity based on club-specific context and deviation from ideal values.
+    
+    Args:
+        kpi_value: The observed KPI value
+        rule: The fault detection rule being evaluated
+        club_type: The type of club being used ("driver", "iron", "wedge")
+    
+    Returns:
+        Severity score between 0.0 and 1.0, or None if no severity calculation applies
+    """
+    if "severity_levels" in rule and rule["severity_levels"]:
+        return _calculate_severity_from_levels(kpi_value, rule)
+    
+    # Enhanced club-specific severity calculation
+    condition_type = rule["condition_type"]
+    cv = rule["condition_values"]
+    
+    # Calculate deviation based on condition type
+    deviation_percent = 0.0
+    base_severity = 0.0
+    
+    if condition_type == "outside_range":
+        lower_bound = cv.get("lower_bound", 0)
+        upper_bound = cv.get("upper_bound", 0)
+        ideal_center = (lower_bound + upper_bound) / 2
+        range_width = upper_bound - lower_bound
+        
+        if kpi_value < lower_bound:
+            deviation_percent = abs(kpi_value - lower_bound) / range_width * 100
+        elif kpi_value > upper_bound:
+            deviation_percent = abs(kpi_value - upper_bound) / range_width * 100
+        else:
+            return None  # Within range, no fault
+            
+    elif condition_type in ["less_than", "greater_than"]:
+        threshold = cv.get("threshold", 0)
+        deviation_percent = abs(kpi_value - threshold) / max(abs(threshold), 1) * 100
+    
+    # Club-specific severity modifiers
+    severity_modifier = 1.0
+    if club_type == "driver":
+        # Driver faults are often more critical for distance
+        if "weight" in rule["biomechanical_metric_checked"].lower():
+            severity_modifier = 1.2  # Weight distribution more critical for driver
+        elif "shoulder" in rule["biomechanical_metric_checked"].lower():
+            severity_modifier = 1.1  # Shoulder turn important for power
+    elif club_type == "wedge":
+        # Wedge faults affect precision more than power
+        if "wrist" in rule["biomechanical_metric_checked"].lower():
+            severity_modifier = 0.9  # Slightly more forgiving on wrist position
+        elif "hip" in rule["biomechanical_metric_checked"].lower():
+            severity_modifier = 1.1  # Hip control critical for short game
+    
+    # Base severity calculation
+    if deviation_percent > 50:
+        base_severity = 0.9
+    elif deviation_percent > 30:
+        base_severity = 0.7
+    elif deviation_percent > 15:
+        base_severity = 0.5
+    elif deviation_percent > 5:
+        base_severity = 0.3
+    else:
+        base_severity = 0.1
+    
+    # Apply club-specific modifier and clamp to [0, 1]
+    final_severity = min(1.0, base_severity * severity_modifier)
+    
+    return final_severity if final_severity > 0.05 else None
+
+def _calculate_severity_from_levels(kpi_value: float, rule: FaultDiagnosisMatrixEntry) -> Optional[float]:
+    """
+    Calculates severity using the rule's defined severity levels.
+    Legacy function for backwards compatibility.
     """
     if "severity_levels" not in rule or not rule["severity_levels"]:
-        return None # No severity logic defined for this rule
-
-    # Example: if rule defines ideal_range in condition_values
+        return None
+    
+    # Simple implementation - this would need enhancement for percentage-based calculations
     ideal_lower = rule["condition_values"].get("lower_bound")
     ideal_upper = rule["condition_values"].get("upper_bound")
-
+    
     deviation_abs = 0
     if rule["condition_type"] == "outside_range" and ideal_lower is not None and ideal_upper is not None:
         if kpi_value < ideal_lower:
             deviation_abs = ideal_lower - kpi_value
         elif kpi_value > ideal_upper:
             deviation_abs = kpi_value - ideal_upper
-    elif rule["condition_type"] == "less_than" and ideal_lower is not None: # Assuming threshold is effectively ideal_lower
-         if kpi_value < ideal_lower: # kpi_value < threshold
-            deviation_abs = ideal_lower - kpi_value
-    elif rule["condition_type"] == "greater_than" and ideal_upper is not None: # Assuming threshold is effectively ideal_upper
-        if kpi_value > ideal_upper: # kpi_value > threshold
-            deviation_abs = kpi_value - ideal_upper
-
-    # This is a very basic example. True severity might depend on % deviation, absolute, etc.
-    # The current severity_levels in FD001 is based on percentage, which is more complex.
-    # For now, let's use a simple mapping if deviation_abs is significant.
-    if deviation_abs > 10: return 0.8 # High severity for >10 units deviation
-    if deviation_abs > 5: return 0.5  # Medium
-    if deviation_abs > 1: return 0.2  # Low
-
+    elif rule["condition_type"] == "less_than":
+        threshold = rule["condition_values"].get("threshold", 0)
+        if kpi_value < threshold:
+            deviation_abs = threshold - kpi_value
+    elif rule["condition_type"] == "greater_than":
+        threshold = rule["condition_values"].get("threshold", 0)
+        if kpi_value > threshold:
+            deviation_abs = kpi_value - threshold
+    
+    # Simple mapping for backwards compatibility
+    if deviation_abs > 10: 
+        return 0.8
+    elif deviation_abs > 5: 
+        return 0.5
+    elif deviation_abs > 1: 
+        return 0.2
+    
     return None
 
 
@@ -199,7 +465,10 @@ def check_swing_faults(
     extracted_kpis: List[BiomechanicalKPI]
 ) -> List[DetectedFault]:
     """
-    Analyzes extracted KPIs against the Fault Diagnosis Matrix to identify swing faults.
+    Analyzes extracted KPIs against club-specific fault detection rules to identify swing faults.
+    
+    This enhanced version dynamically selects fault detection rules based on the club type
+    and applies club-specific thresholds, ideal ranges, and severity calculations.
 
     Args:
         swing_input: The original input data for the swing analysis.
@@ -210,49 +479,35 @@ def check_swing_faults(
     """
     detected_faults: List[DetectedFault] = []
     kpis_map: Dict[str, BiomechanicalKPI] = {kpi['kpi_name']: kpi for kpi in extracted_kpis}
+    
+    # Determine club type and generate appropriate fault matrix
+    club_type = classify_club_type(swing_input.get('club_used', 'iron'))
+    fault_matrix = generate_club_specific_fault_matrix(club_type)
+    
+    print(f"Debug: Using {club_type} fault detection rules for club '{swing_input.get('club_used', 'unknown')}'")
+    print(f"Debug: Generated {len(fault_matrix)} club-specific fault detection rules")
 
-    for rule in FAULT_DIAGNOSIS_MATRIX:
+    for rule in fault_matrix:
         kpi_name_to_check = rule["biomechanical_metric_checked"]
         kpi = kpis_map.get(kpi_name_to_check)
 
         if not kpi:
-            # print(f"Debug: KPI '{kpi_name_to_check}' needed for rule '{rule['entry_id']}' not found in extracted_kpis.")
-            continue # Skip rule if required KPI is missing
-
-        kpi_value = kpi['value']
-        fault_detected_for_rule = False
-
-        # Ensure kpi_value is float for comparisons if it's numeric
-        if not isinstance(kpi_value, (int, float)):
-            # print(f"Debug: KPI value for '{kpi_name_to_check}' is not numeric, skipping rule '{rule['entry_id']}'. Value: {kpi_value}")
+            # Skip rule if required KPI is missing - this is normal for placeholder KPIs
             continue
 
-        condition_type = rule["condition_type"]
-        cv = rule["condition_values"] # condition_values from matrix entry
+        kpi_value = kpi['value']
+        
+        # Ensure kpi_value is numeric for comparisons
+        if not isinstance(kpi_value, (int, float)):
+            continue
 
-        if condition_type == "outside_range":
-            if "lower_bound" in cv and "upper_bound" in cv:
-                if not (cv["lower_bound"] <= kpi_value <= cv["upper_bound"]):
-                    fault_detected_for_rule = True
-        elif condition_type == "less_than":
-            if "threshold" in cv:
-                if kpi_value < cv["threshold"]:
-                    fault_detected_for_rule = True
-        elif condition_type == "greater_than":
-            if "threshold" in cv:
-                if kpi_value > cv["threshold"]:
-                    fault_detected_for_rule = True
-        # Add more conditions like "equals", "not_equals", "within_x_percent_of_ideal" etc. as needed
+        # Evaluate fault condition
+        fault_detected_for_rule = _evaluate_fault_condition(kpi_value, rule)
 
         if fault_detected_for_rule:
-            ideal_val_desc = ""
-            if condition_type == "outside_range":
-                ideal_val_desc = f"between {cv['lower_bound']:.1f} and {cv['upper_bound']:.1f} {kpi['unit']}"
-            elif condition_type == "less_than":
-                ideal_val_desc = f"greater than or equal to {cv['threshold']:.1f} {kpi['unit']}"
-            elif condition_type == "greater_than":
-                ideal_val_desc = f"less than or equal to {cv['threshold']:.1f} {kpi['unit']}"
-
+            # Generate descriptive text for ideal values
+            ideal_val_desc = _generate_ideal_value_description(rule, kpi['unit'])
+            
             kpi_deviation = KPIDeviation(
                 kpi_name=kpi_name_to_check,
                 observed_value=f"{kpi_value:.1f} {kpi['unit']}",
@@ -260,13 +515,13 @@ def check_swing_faults(
                 p_position=kpi['p_position']
             )
 
-            # Calculate severity (basic placeholder version)
-            severity_score = _calculate_severity(float(kpi_value), rule)
+            # Calculate club-specific severity
+            severity_score = _calculate_club_specific_severity(float(kpi_value), rule, club_type)
 
             fault = DetectedFault(
                 fault_id=rule["fault_to_report_id"],
-                fault_name=rule.get("fault_name", "Unknown Fault Name"), # Use .get for optional fields
-                p_positions_implicated=[kpi['p_position']], # Start with the KPI's P-position
+                fault_name=rule.get("fault_name", "Unknown Fault Name"),
+                p_positions_implicated=[kpi['p_position']],
                 description=rule.get("fault_description", "No description provided."),
                 kpi_deviations=[kpi_deviation],
                 llm_prompt_template_key=rule["llm_prompt_template_key"],
@@ -276,129 +531,234 @@ def check_swing_faults(
 
     return detected_faults
 
+def _evaluate_fault_condition(kpi_value: float, rule: FaultDiagnosisMatrixEntry) -> bool:
+    """
+    Evaluates whether a KPI value meets the fault condition defined in the rule.
+    
+    Args:
+        kpi_value: The observed KPI value
+        rule: The fault detection rule
+    
+    Returns:
+        True if the fault condition is met, False otherwise
+    """
+    condition_type = rule["condition_type"]
+    cv = rule["condition_values"]
+    
+    if condition_type == "outside_range":
+        if "lower_bound" in cv and "upper_bound" in cv:
+            return not (cv["lower_bound"] <= kpi_value <= cv["upper_bound"])
+    elif condition_type == "less_than":
+        if "threshold" in cv:
+            return kpi_value < cv["threshold"]
+    elif condition_type == "greater_than":
+        if "threshold" in cv:
+            return kpi_value > cv["threshold"]
+    elif condition_type == "equals":
+        if "value" in cv:
+            return abs(kpi_value - cv["value"]) < 0.01  # Small tolerance for float comparison
+    elif condition_type == "not_equals":
+        if "value" in cv:
+            return abs(kpi_value - cv["value"]) >= 0.01
+    
+    return False
+
+def _generate_ideal_value_description(rule: FaultDiagnosisMatrixEntry, unit: str) -> str:
+    """
+    Generates a human-readable description of the ideal value range for a rule.
+    
+    Args:
+        rule: The fault detection rule
+        unit: The unit of measurement for the KPI
+    
+    Returns:
+        A descriptive string of the ideal value or range
+    """
+    condition_type = rule["condition_type"]
+    cv = rule["condition_values"]
+    
+    if condition_type == "outside_range":
+        return f"between {cv['lower_bound']:.1f} and {cv['upper_bound']:.1f} {unit}"
+    elif condition_type == "less_than":
+        return f"greater than or equal to {cv['threshold']:.1f} {unit}"
+    elif condition_type == "greater_than":
+        return f"less than or equal to {cv['threshold']:.1f} {unit}"
+    elif condition_type == "equals":
+        return f"approximately {cv['value']:.1f} {unit}"
+    elif condition_type == "not_equals":
+        return f"not equal to {cv['value']:.1f} {unit}"
+    
+    return "within acceptable parameters"
+
 
 if __name__ == '__main__':
-    from kpi_extraction import extract_all_kpis # For testing
+    # Import KPI extraction for testing if available, otherwise skip
+    try:
+        from kpi_extraction import extract_all_kpis
+        KPI_EXTRACTION_AVAILABLE = True
+    except ImportError:
+        print("Warning: KPI extraction module not available (numpy dependency). Running simplified test.")
+        KPI_EXTRACTION_AVAILABLE = False
 
-    # --- Create dummy SwingVideoAnalysisInput for testing ---
+    print("=== Enhanced Club-Specific Fault Detection Testing ===\n")
+    
+    # Test club classification
+    print("--- Testing Club Classification ---")
+    test_clubs = ["Driver", "7-Iron", "Sand Wedge", "Pitching Wedge", "3-Wood", "5-Hybrid"]
+    for club in test_clubs:
+        club_type = classify_club_type(club)
+        print(f"  {club} -> {club_type}")
+    print()
+    
+    # Test fault matrix generation
+    print("--- Testing Club-Specific Matrix Generation ---")
+    for club_type in ["driver", "iron", "wedge"]:
+        matrix = generate_club_specific_fault_matrix(club_type)
+        print(f"{club_type.title()}: {len(matrix)} rules generated")
+    print()
+    
+    if not KPI_EXTRACTION_AVAILABLE:
+        print("Skipping full integration test due to missing dependencies.")
+        print("Run 'python test_club_specific_faults.py' for comprehensive testing.")
+        exit(0)
+
+    # --- Create dummy SwingVideoAnalysisInput for testing different club types ---
     def _make_kp(x,y,z): return {"x":x, "y":y, "z":z, "visibility":1.0}
 
-    # P1 Data: Hip Hinge: 50 deg (too much), Left Knee Flex: 30 deg (too much)
-    # Shoulder Rotation P4: 70 deg (insufficient)
-    # Weight Dist P1: 60% on lead (too much for irons)
-
+    # P1 Data with various faults for testing
     p1_frames_faulty = []
     for _ in range(11):
-        frame_data: Dict[str, Any] = { # Changed FramePoseData to Dict for this test
-            "left_shoulder": _make_kp(-0.2, 1.4, -0.3), # Simulating more bend by moving shoulders forward in Z
+        frame_data: Dict[str, Any] = {
+            "left_shoulder": _make_kp(-0.2, 1.4, -0.3),  # Simulating hip hinge issues
             "right_shoulder": _make_kp(0.2, 1.4, -0.3),
-            "left_hip": _make_kp(-0.15, 0.9, 0), "right_hip": _make_kp(0.15, 0.9, 0),
-            # More knee flex: knee further forward or lower
-            "left_knee": _make_kp(-0.18, 0.4, 0.05), "right_knee": _make_kp(0.18, 0.45, 0), # Left knee more flexed
-            "left_ankle": _make_kp(-0.25, 0.1, 0), "right_ankle": _make_kp(0.15, 0.1, 0), # Shifted left ankle for weight dist
+            "left_hip": _make_kp(-0.15, 0.9, 0), 
+            "right_hip": _make_kp(0.15, 0.9, 0),
+            "left_knee": _make_kp(-0.18, 0.4, 0.05),     # Excessive knee flex
+            "right_knee": _make_kp(0.18, 0.45, 0),
+            "left_ankle": _make_kp(-0.25, 0.1, 0),       # Weight distribution issues
+            "right_ankle": _make_kp(0.15, 0.1, 0),
         }
         p1_frames_faulty.append(frame_data)
 
-    # P4 Data: Shoulders rotated only ~70 degrees.
-    # For 70 deg rotation (approx): ls_x ~ -0.2*cos(70), ls_z ~ -0.2*sin(70)
-    # cos(70)~0.34, sin(70)~0.94. ls_x ~ -0.068, ls_z ~ -0.188
-    # rs_x ~ 0.068, rs_z ~ 0.188
+    # P4 Data with restricted shoulder turn
     p4_frames_faulty = []
     for _ in range(10):
         frame_data_p4: Dict[str, Any] = {
-            "left_shoulder": _make_kp(-0.07, 1.4, -0.19), "right_shoulder": _make_kp(0.07, 1.4, 0.19),
-            "left_hip": _make_kp(-0.1, 0.9, -0.08), "right_hip": _make_kp(0.1, 0.9, -0.08),
-            "left_knee": _make_kp(-0.18, 0.5, 0), "right_knee": _make_kp(0.18, 0.5, 0),
-            "left_ankle": _make_kp(-0.2, 0.1, 0), "right_ankle": _make_kp(0.2, 0.1, 0),
-             # Placeholder for wrist keypoints if LeadWristAngleP4 KPI was real
-            "left_wrist": _make_kp(-0.3, 1.5, -0.4), # Example of a cupped wrist position
+            "left_shoulder": _make_kp(-0.07, 1.4, -0.19),  # ~70 degree turn
+            "right_shoulder": _make_kp(0.07, 1.4, 0.19),
+            "left_hip": _make_kp(-0.1, 0.9, -0.08), 
+            "right_hip": _make_kp(0.1, 0.9, -0.08),
+            "left_knee": _make_kp(-0.18, 0.5, 0), 
+            "right_knee": _make_kp(0.18, 0.5, 0),
+            "left_ankle": _make_kp(-0.2, 0.1, 0), 
+            "right_ankle": _make_kp(0.2, 0.1, 0),
+            "left_wrist": _make_kp(-0.3, 1.5, -0.4),      # Cupped wrist position
         }
         p4_frames_faulty.append(frame_data_p4)
 
-    sample_swing_faulty_input: SwingVideoAnalysisInput = {
-        "session_id": "test_faulty_swing_001",
-        "user_id": "test_user_faulty",
-        "club_used": "7-Iron", # Important for weight distribution check
-        "frames": p1_frames_faulty + p4_frames_faulty,
-        "p_system_classification": [
-            {"phase_name": "P1", "start_frame_index": 0, "end_frame_index": 10},
-            {"phase_name": "P4", "start_frame_index": 11, "end_frame_index": 20}
-        ],
-        "video_fps": 60.0
-    }
+    # Test with different club types
+    test_club_types = ["Driver", "7-Iron", "Sand Wedge"]
+    
+    for test_club in test_club_types:
+        print(f"--- Testing {test_club} Fault Detection ---")
+        
+        sample_swing_input: SwingVideoAnalysisInput = {
+            "session_id": f"test_swing_{test_club.lower().replace('-', '_')}",
+            "user_id": "test_user",
+            "club_used": test_club,
+            "frames": p1_frames_faulty + p4_frames_faulty,
+            "p_system_classification": [
+                {"phase_name": "P1", "start_frame_index": 0, "end_frame_index": 10},
+                {"phase_name": "P4", "start_frame_index": 11, "end_frame_index": 20}
+            ],
+            "video_fps": 60.0
+        }
 
-    print("--- Testing Fault Detection ---")
-    # 1. Extract KPIs using the faulty swing data
-    print("Extracting KPIs for faulty swing...")
-    kpis_from_faulty_swing = extract_all_kpis(sample_swing_faulty_input)
+        # Extract KPIs
+        kpis_from_swing = extract_all_kpis(sample_swing_input)
 
-    # Manually add a placeholder KPI for testing the "Cupped Wrist" rule,
-    # as LeadWristAngleP4 is not implemented in kpi_extraction.py
-    # This simulates that the KPI was extracted with a value indicating a fault.
-    placeholder_cupped_wrist_kpi = BiomechanicalKPI(
-        p_position="P4",
-        kpi_name=PLACEHOLDER_LEAD_WRIST_ANGLE_P4, # Matches matrix
-        value=25.0, # Degrees of extension (cupping), rule FD005 triggers if > 15.0
-        unit="degrees",
-        ideal_range=(-5.0, 5.0), # Flat to slightly bowed
-        notes="Placeholder KPI for cupped wrist."
-    )
-    kpis_from_faulty_swing.append(placeholder_cupped_wrist_kpi)
+        # Add placeholder KPIs for testing club-specific rules
+        placeholder_kpis = [
+            BiomechanicalKPI(
+                p_position="P4",
+                kpi_name=PLACEHOLDER_LEAD_WRIST_ANGLE_P4,
+                value=15.0,  # Will trigger different thresholds based on club type
+                unit="degrees",
+                ideal_range=(-5.0, 5.0),
+                notes="Placeholder KPI for wrist angle testing."
+            ),
+            BiomechanicalKPI(
+                p_position="P4",
+                kpi_name=PLACEHOLDER_HIP_LATERAL_SWAY_P4,
+                value=0.20,  # 20cm sway - should trigger fault for all clubs
+                unit="meters",
+                ideal_range=(0.0, 0.10),
+                notes="Placeholder KPI for hip sway testing."
+            ),
+            BiomechanicalKPI(
+                p_position="P4",
+                kpi_name=PLACEHOLDER_SPINE_ANGLE_REVERSE_P4,
+                value=12.0,  # Reverse spine angle - should trigger fault
+                unit="degrees",
+                ideal_range=(-5.0, 5.0),
+                notes="Placeholder KPI for reverse spine testing."
+            )
+        ]
+        
+        kpis_from_swing.extend(placeholder_kpis)
 
-    print(f"\nKPIs extracted ({len(kpis_from_faulty_swing)} total):")
-    for kpi in kpis_from_faulty_swing:
-        # Type check for value before formatting, robustly handle non-numeric if any slip through
-        val_str = f"{kpi['value']:.1f}" if isinstance(kpi['value'], (int, float)) else str(kpi['value'])
-        print(f"  - {kpi['kpi_name']} ({kpi['p_position']}): {val_str} {kpi['unit']}")
+        print(f"\nKPIs extracted for {test_club} ({len(kpis_from_swing)} total):")
+        for kpi in kpis_from_swing:
+            val_str = f"{kpi['value']:.1f}" if isinstance(kpi['value'], (int, float)) else str(kpi['value'])
+            print(f"  - {kpi['kpi_name']} ({kpi['p_position']}): {val_str} {kpi['unit']}")
 
+        # Check for faults with club-specific rules
+        print(f"\nChecking for faults with {test_club}...")
+        identified_faults = check_swing_faults(sample_swing_input, kpis_from_swing)
 
-    # 2. Check for faults
-    print("\nChecking for faults...")
-    identified_faults = check_swing_faults(sample_swing_faulty_input, kpis_from_faulty_swing)
+        if identified_faults:
+            print(f"\n--- {len(identified_faults)} Club-Specific Fault(s) Detected: ---")
+            for fault in identified_faults:
+                print(f"  Fault ID: {fault['fault_id']}")
+                print(f"  Name: {fault['fault_name']}")
+                print(f"  Severity: {fault['severity']:.2f}" if fault['severity'] else "No severity calculated")
+                print(f"  Description: {fault['description'][:100]}...")
+                for dev in fault['kpi_deviations']:
+                    print(f"    - {dev['kpi_name']}: {dev['observed_value']} | {dev['ideal_value_or_range']}")
+                print("-" * 40)
+        else:
+            print(f"\nNo faults detected for {test_club} (unexpected with test data).")
+        
+        print("\n" + "="*60 + "\n")
 
-    if identified_faults:
-        print(f"\n--- {len(identified_faults)} Fault(s) Detected: ---")
-        for fault in identified_faults:
-            print(f"  Fault ID: {fault['fault_id']}")
-            print(f"  Name: {fault['fault_name']}")
-            print(f"  Description: {fault['description']}")
-            print(f"  P-Positions: {fault['p_positions_implicated']}")
-            print(f"  Severity: {fault['severity']}")
-            print(f"  LLM Key: {fault['llm_prompt_template_key']}")
-            for dev in fault['kpi_deviations']:
-                print(f"    - Deviation: {dev['kpi_name']}")
-                print(f"      Observed: {dev['observed_value']}")
-                print(f"      {dev['ideal_value_or_range']}")
-            print("-" * 20)
-    else:
-        print("\nNo faults detected with the current rules and data.")
+    # Demonstrate matrix generation for different club types
+    print("--- Club-Specific Matrix Generation Demo ---")
+    for club_type in ["driver", "iron", "wedge"]:
+        matrix = generate_club_specific_fault_matrix(club_type)
+        print(f"\n{club_type.title()} Matrix: {len(matrix)} rules generated")
+        print("Sample rules:")
+        for i, rule in enumerate(matrix[:3]):  # Show first 3 rules
+            print(f"  {i+1}. {rule['fault_name']} (ID: {rule['entry_id']})")
+        if len(matrix) > 3:
+            print(f"  ... and {len(matrix) - 3} more rules")
 
-    # Test with non-faulty data (using the test data from kpi_extraction)
-    from kpi_extraction import sample_swing_input as non_faulty_swing_data
-    print("\n--- Testing with Non-Faulty Swing Data ---")
-    print("Extracting KPIs for non-faulty swing...")
-    kpis_from_non_faulty_swing = extract_all_kpis(non_faulty_swing_data)
-    # Add placeholder lead wrist KPI that is NOT faulty
-    placeholder_good_wrist_kpi = BiomechanicalKPI(
-        p_position="P4", kpi_name=PLACEHOLDER_LEAD_WRIST_ANGLE_P4, value=0.0, unit="degrees",
-        ideal_range=(-5.0, 5.0), notes="Placeholder KPI for good wrist."
-    )
-    kpis_from_non_faulty_swing.append(placeholder_good_wrist_kpi)
+    print("\n=== Enhanced Fault Detection Testing Complete ===")
 
-    print(f"\nKPIs extracted ({len(kpis_from_non_faulty_swing)} total):")
-    # for kpi in kpis_from_non_faulty_swing:
-    #     val_str = f"{kpi['value']:.1f}" if isinstance(kpi['value'], (int, float)) else str(kpi['value'])
-    #     print(f"  - {kpi['kpi_name']} ({kpi['p_position']}): {val_str} {kpi['unit']}")
+"""
+Enhanced Club-Specific Fault Detection Summary:
 
-    print("\nChecking for faults (non-faulty data)...")
-    non_faulty_results = check_swing_faults(non_faulty_swing_data, kpis_from_non_faulty_swing)
-    if non_faulty_results:
-        print(f"\n--- {len(non_faulty_results)} Fault(s) Detected (EXPECTED NONE OR FEW): ---")
-        for fault in non_faulty_results:
-            print(f"  Fault ID: {fault['fault_id']} - Name: {fault['fault_name']}")
-            for dev in fault['kpi_deviations']:
-                 print(f"    - Deviation: {dev['kpi_name']}, Observed: {dev['observed_value']}, {dev['ideal_value_or_range']}")
-    else:
-        print("\nNo faults detected with non-faulty data, as expected for most rules.")
+Key Enhancements Made:
+1. Club Type Classification: Automatic classification of clubs into driver/iron/wedge categories
+2. Dynamic Fault Matrix Generation: Club-specific rules with appropriate thresholds
+3. Club-Specific Targets: Different ideal ranges for each club type
+4. Enhanced Severity Calculation: Club-specific severity modifiers
+5. Comprehensive Rule Coverage: Basic rules + club-specific advanced rules
 
+Club-Specific Features:
+- Driver: Optimized for power generation, upward attack angle
+- Iron: Balanced approach for consistency and ball-first contact  
+- Wedge: Focus on control and precision for short game
+
+The system now dynamically selects appropriate fault detection rules based on
+the club_used field and applies club-specific expectations for optimal performance.
 """

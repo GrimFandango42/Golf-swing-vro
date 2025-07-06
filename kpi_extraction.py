@@ -395,6 +395,1184 @@ def calculate_shoulder_rotation_p4(swing_input: SwingVideoAnalysisInput) -> Opti
     )
 
 
+# --- P2 KPI Functions ---
+
+def extract_p2_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
+    """Extracts KPIs for P2 (Takeaway) position."""
+    kpis = []
+    
+    # Movement synchronization - check arm and shoulder movement
+    sync_kpi = calculate_takeaway_synchronization_p2(swing_input)
+    if sync_kpi: kpis.append(sync_kpi)
+    
+    # Club face angle proxy using wrist positions
+    face_angle_kpi = calculate_club_face_angle_proxy_p2(swing_input)
+    if face_angle_kpi: kpis.append(face_angle_kpi)
+    
+    # Tempo - rate of change from P1 to P2
+    tempo_kpi = calculate_takeaway_tempo_p2(swing_input)
+    if tempo_kpi: kpis.append(tempo_kpi)
+    
+    return kpis
+
+def calculate_takeaway_synchronization_p2(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates synchronization between arm and shoulder movement during takeaway."""
+    p_position = "P2"
+    kpi_name = "Takeaway Synchronization Score"
+    
+    # Get P1 and P2 positions for comparison
+    ls_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_SHOULDER)
+    rs_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_SHOULDER)
+    lw_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_WRIST)
+    rw_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_WRIST)
+    
+    ls_p2 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    rs_p2 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_SHOULDER)
+    lw_p2 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    rw_p2 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_WRIST)
+    
+    if not all([ls_p1 is not None, rs_p1 is not None, lw_p1 is not None, rw_p1 is not None,
+                ls_p2 is not None, rs_p2 is not None, lw_p2 is not None, rw_p2 is not None]):
+        return None
+    
+    # Calculate shoulder center movement
+    shoulder_center_p1 = get_midpoint(ls_p1, rs_p1)
+    shoulder_center_p2 = get_midpoint(ls_p2, rs_p2)
+    shoulder_movement = np.linalg.norm(shoulder_center_p2 - shoulder_center_p1)
+    
+    # Calculate wrist center movement
+    wrist_center_p1 = get_midpoint(lw_p1, rw_p1)
+    wrist_center_p2 = get_midpoint(lw_p2, rw_p2)
+    wrist_movement = np.linalg.norm(wrist_center_p2 - wrist_center_p1)
+    
+    # Synchronization ratio - ideally arms and body move together
+    if shoulder_movement > 0:
+        sync_ratio = wrist_movement / shoulder_movement
+        # Convert to percentage score (100% = perfect 1:1 ratio)
+        sync_score = max(0, 100 - abs(sync_ratio - 1.0) * 100)
+    else:
+        sync_score = 0
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=sync_score,
+        unit="%",
+        ideal_range=(80.0, 100.0),
+        notes="Synchronization between arm and shoulder movement during takeaway. 100% indicates perfect one-piece takeaway."
+    )
+
+def calculate_club_face_angle_proxy_p2(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Estimates club face angle using wrist positions as proxy."""
+    p_position = "P2"
+    kpi_name = "Club Face Angle Proxy"
+    
+    lw_p2 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    rw_p2 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_WRIST)
+    
+    if not all([lw_p2 is not None, rw_p2 is not None]):
+        return None
+    
+    # Calculate wrist line angle in XZ plane (assuming Y is vertical)
+    wrist_vector = rw_p2 - lw_p2
+    wrist_angle_xz = math.degrees(math.atan2(wrist_vector[2], wrist_vector[0]))
+    
+    # Normalize to 0-90 range as proxy for face angle
+    face_angle_proxy = abs(wrist_angle_xz) % 90
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=face_angle_proxy,
+        unit="degrees",
+        ideal_range=(10.0, 30.0),
+        notes="Proxy for club face angle using wrist line orientation. Not actual face angle."
+    )
+
+def calculate_takeaway_tempo_p2(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates tempo of takeaway from P1 to P2."""
+    p_position = "P2"
+    kpi_name = "Takeaway Tempo"
+    
+    # Get phase timings
+    p1_phase = get_phase_by_name(swing_input, "P1")
+    p2_phase = get_phase_by_name(swing_input, p_position)
+    
+    if not p1_phase or not p2_phase:
+        return None
+    
+    # Calculate time difference
+    frame_diff = p2_phase['start_frame_index'] - p1_phase['end_frame_index']
+    time_diff = frame_diff / swing_input['video_fps']
+    
+    # Get wrist movement for tempo calculation
+    lw_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_WRIST)
+    lw_p2 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    
+    if not all([lw_p1 is not None, lw_p2 is not None]) or time_diff <= 0:
+        return None
+    
+    movement_distance = np.linalg.norm(lw_p2 - lw_p1)
+    tempo = movement_distance / time_diff if time_diff > 0 else 0
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=tempo,
+        unit="m/s",
+        ideal_range=(0.3, 0.8),
+        notes="Speed of wrist movement during takeaway phase."
+    )
+
+
+# --- P3 KPI Functions ---
+
+def extract_p3_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
+    """Extracts KPIs for P3 (Halfway Back) position."""
+    kpis = []
+    
+    # Lead arm position relative to ground
+    arm_position_kpi = calculate_lead_arm_position_p3(swing_input)
+    if arm_position_kpi: kpis.append(arm_position_kpi)
+    
+    # Weight transfer analysis
+    weight_transfer_kpi = calculate_weight_transfer_p3(swing_input)
+    if weight_transfer_kpi: kpis.append(weight_transfer_kpi)
+    
+    # Spine angle maintenance
+    spine_angle_kpi = calculate_spine_angle_p3(swing_input)
+    if spine_angle_kpi: kpis.append(spine_angle_kpi)
+    
+    return kpis
+
+def calculate_lead_arm_position_p3(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates lead arm angle relative to horizontal at P3."""
+    p_position = "P3"
+    kpi_name = "Lead Arm Angle to Horizontal"
+    
+    # Assuming left arm is lead for right-handed golfer
+    ls_p3 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    le_p3 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ELBOW)
+    
+    if not all([ls_p3 is not None, le_p3 is not None]):
+        return None
+    
+    # Calculate arm vector
+    arm_vector = le_p3 - ls_p3
+    
+    # Project onto XZ plane (horizontal plane assuming Y is vertical)
+    arm_horizontal = np.array([arm_vector[0], 0, arm_vector[2]])
+    
+    # Calculate angle with horizontal
+    if np.linalg.norm(arm_horizontal) > 0:
+        angle_with_horizontal = calculate_angle_3d(
+            ls_p3 + arm_horizontal, ls_p3, le_p3
+        )
+    else:
+        angle_with_horizontal = 90.0
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=angle_with_horizontal,
+        unit="degrees",
+        ideal_range=(85.0, 95.0),
+        notes="Angle of lead arm relative to horizontal plane. Ideal is parallel to ground (~90 degrees)."
+    )
+
+def calculate_weight_transfer_p3(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates weight transfer from P1 to P3."""
+    p_position = "P3"
+    kpi_name = "Weight Transfer to Trail Foot"
+    
+    # Compare weight distribution between P1 and P3
+    weight_p1 = estimate_weight_distribution_p1(swing_input)
+    
+    # Calculate P3 weight distribution using same method
+    left_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    left_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ANKLE)
+    right_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_ANKLE)
+    
+    if not all([left_hip is not None, right_hip is not None, left_ankle is not None, right_ankle is not None]) or not weight_p1:
+        return None
+    
+    mid_hip = get_midpoint(left_hip, right_hip)
+    lead_ankle_x = left_ankle[0]
+    trail_ankle_x = right_ankle[0]
+    
+    min_ankle_x = min(lead_ankle_x, trail_ankle_x)
+    max_ankle_x = max(lead_ankle_x, trail_ankle_x)
+    
+    if (max_ankle_x - min_ankle_x) < 1e-6:
+        return None
+    
+    com_x = mid_hip[0]
+    relative_pos = (com_x - min_ankle_x) / (max_ankle_x - min_ankle_x)
+    
+    if lead_ankle_x < trail_ankle_x:
+        weight_on_lead_p3 = (1.0 - np.clip(relative_pos, 0, 1)) * 100
+    else:
+        weight_on_lead_p3 = np.clip(relative_pos, 0, 1) * 100
+    
+    # Calculate transfer amount
+    weight_transfer = weight_p1['value'] - weight_on_lead_p3
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=weight_transfer,
+        unit="%",
+        ideal_range=(10.0, 25.0),
+        notes="Amount of weight transferred to trail foot from address position. Positive values indicate transfer to trail side."
+    )
+
+def calculate_spine_angle_p3(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates spine angle maintenance at P3."""
+    p_position = "P3"
+    kpi_name = "Spine Angle Maintenance"
+    
+    # Compare spine angle between P1 and P3
+    spine_p1_kpi = calculate_hip_hinge_angle_p1(swing_input)
+    
+    # Calculate P3 spine angle using same method
+    left_shoulder = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    right_shoulder = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_SHOULDER)
+    left_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    
+    if not all([left_shoulder is not None, right_shoulder is not None, left_hip is not None, right_hip is not None]) or not spine_p1_kpi:
+        return None
+    
+    mid_shoulder = get_midpoint(left_shoulder, right_shoulder)
+    mid_hip = get_midpoint(left_hip, right_hip)
+    torso_vector = mid_shoulder - mid_hip
+    vertical_vector_world = np.array([0, 1, 0])
+    
+    angle_with_vertical = calculate_angle_3d(mid_shoulder + vertical_vector_world, mid_shoulder, mid_hip)
+    
+    # Calculate difference from P1
+    spine_angle_change = abs(angle_with_vertical - spine_p1_kpi['value'])
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=spine_angle_change,
+        unit="degrees",
+        ideal_range=(0.0, 5.0),
+        notes="Change in spine angle from address position. Lower values indicate better spine angle maintenance."
+    )
+
+
+# --- P5 KPI Functions ---
+
+def extract_p5_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
+    """Extracts KPIs for P5 (Early Downswing) position."""
+    kpis = []
+    
+    # Hip rotation analysis
+    hip_rotation_kpi = calculate_hip_rotation_p5(swing_input)
+    if hip_rotation_kpi: kpis.append(hip_rotation_kpi)
+    
+    # Weight shift to lead side
+    weight_shift_kpi = calculate_weight_shift_p5(swing_input)
+    if weight_shift_kpi: kpis.append(weight_shift_kpi)
+    
+    # Club path analysis
+    club_path_kpi = calculate_club_path_p5(swing_input)
+    if club_path_kpi: kpis.append(club_path_kpi)
+    
+    return kpis
+
+def calculate_hip_rotation_p5(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates hip rotation at P5 relative to P4."""
+    p_position = "P5"
+    kpi_name = "Hip Rotation from P4"
+    
+    # Get hip positions at P4 and P5
+    lh_p4 = get_average_keypoint_position_for_phase(swing_input, "P4", KP_LEFT_HIP)
+    rh_p4 = get_average_keypoint_position_for_phase(swing_input, "P4", KP_RIGHT_HIP)
+    lh_p5 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    rh_p5 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    
+    if not all([lh_p4 is not None, rh_p4 is not None, lh_p5 is not None, rh_p5 is not None]):
+        return None
+    
+    # Calculate hip line vectors in XZ plane
+    hip_line_p4 = np.array([rh_p4[0] - lh_p4[0], rh_p4[2] - lh_p4[2]])
+    hip_line_p5 = np.array([rh_p5[0] - lh_p5[0], rh_p5[2] - lh_p5[2]])
+    
+    if np.linalg.norm(hip_line_p4) == 0 or np.linalg.norm(hip_line_p5) == 0:
+        return None
+    
+    # Calculate angle between hip lines
+    unit_vec_p4 = hip_line_p4 / np.linalg.norm(hip_line_p4)
+    unit_vec_p5 = hip_line_p5 / np.linalg.norm(hip_line_p5)
+    
+    dot_product = np.dot(unit_vec_p4, unit_vec_p5)
+    angle_rad = math.acos(np.clip(dot_product, -1.0, 1.0))
+    angle_deg = math.degrees(angle_rad)
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=angle_deg,
+        unit="degrees",
+        ideal_range=(15.0, 30.0),
+        notes="Hip rotation from top of backswing to early downswing. Indicates proper sequencing."
+    )
+
+def calculate_weight_shift_p5(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates weight shift toward lead foot at P5."""
+    p_position = "P5"
+    kpi_name = "Weight Shift to Lead Foot"
+    
+    # Calculate weight distribution at P5
+    left_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    left_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ANKLE)
+    right_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_ANKLE)
+    
+    if not all([left_hip is not None, right_hip is not None, left_ankle is not None, right_ankle is not None]):
+        return None
+    
+    mid_hip = get_midpoint(left_hip, right_hip)
+    lead_ankle_x = left_ankle[0]
+    trail_ankle_x = right_ankle[0]
+    
+    min_ankle_x = min(lead_ankle_x, trail_ankle_x)
+    max_ankle_x = max(lead_ankle_x, trail_ankle_x)
+    
+    if (max_ankle_x - min_ankle_x) < 1e-6:
+        return None
+    
+    com_x = mid_hip[0]
+    relative_pos = (com_x - min_ankle_x) / (max_ankle_x - min_ankle_x)
+    
+    if lead_ankle_x < trail_ankle_x:
+        weight_on_lead_p5 = (1.0 - np.clip(relative_pos, 0, 1)) * 100
+    else:
+        weight_on_lead_p5 = np.clip(relative_pos, 0, 1) * 100
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=weight_on_lead_p5,
+        unit="%",
+        ideal_range=(60.0, 75.0),
+        notes="Percentage of weight on lead foot during early downswing transition."
+    )
+
+def calculate_club_path_p5(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Estimates club path using wrist positions."""
+    p_position = "P5"
+    kpi_name = "Club Path Proxy"
+    
+    # Get wrist positions from P4 to P5
+    lw_p4 = get_average_keypoint_position_for_phase(swing_input, "P4", KP_LEFT_WRIST)
+    rw_p4 = get_average_keypoint_position_for_phase(swing_input, "P4", KP_RIGHT_WRIST)
+    lw_p5 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    rw_p5 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_WRIST)
+    
+    if not all([lw_p4 is not None, rw_p4 is not None, lw_p5 is not None, rw_p5 is not None]):
+        return None
+    
+    # Calculate club head proxy movement
+    club_center_p4 = get_midpoint(lw_p4, rw_p4)
+    club_center_p5 = get_midpoint(lw_p5, rw_p5)
+    club_movement = club_center_p5 - club_center_p4
+    
+    # Calculate path angle in XZ plane
+    path_angle = math.degrees(math.atan2(club_movement[2], club_movement[0]))
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=abs(path_angle),
+        unit="degrees",
+        ideal_range=(30.0, 60.0),
+        notes="Proxy for club path using wrist center movement. Not actual club path."
+    )
+
+
+# --- P6 KPI Functions ---
+
+def extract_p6_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
+    """Extracts KPIs for P6 (Pre-Impact) position."""
+    kpis = []
+    
+    # Lag angle analysis
+    lag_angle_kpi = calculate_lag_angle_p6(swing_input)
+    if lag_angle_kpi: kpis.append(lag_angle_kpi)
+    
+    # Body position at pre-impact
+    body_position_kpi = calculate_body_position_p6(swing_input)
+    if body_position_kpi: kpis.append(body_position_kpi)
+    
+    # Weight transfer completion
+    weight_transfer_kpi = calculate_weight_transfer_completion_p6(swing_input)
+    if weight_transfer_kpi: kpis.append(weight_transfer_kpi)
+    
+    return kpis
+
+def calculate_lag_angle_p6(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates lag angle between lead arm and club shaft proxy."""
+    p_position = "P6"
+    kpi_name = "Lag Angle (Arm-Shaft)"
+    
+    # Using left arm and wrist for right-handed golfer
+    ls_p6 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    le_p6 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ELBOW)
+    lw_p6 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    
+    if not all([ls_p6 is not None, le_p6 is not None, lw_p6 is not None]):
+        return None
+    
+    # Calculate arm vector (shoulder to wrist)
+    arm_vector = lw_p6 - ls_p6
+    # Calculate forearm vector (elbow to wrist) as proxy for shaft
+    forearm_vector = lw_p6 - le_p6
+    
+    # Calculate angle between vectors
+    lag_angle = calculate_angle_3d(ls_p6, lw_p6, le_p6)
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=lag_angle,
+        unit="degrees",
+        ideal_range=(90.0, 120.0),
+        notes="Angle between lead arm and forearm as proxy for shaft lag. Larger angles indicate more lag."
+    )
+
+def calculate_body_position_p6(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates body position relative to setup at P6."""
+    p_position = "P6"
+    kpi_name = "Body Position Forward Shift"
+    
+    # Compare hip position between P1 and P6
+    lh_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_HIP)
+    rh_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_HIP)
+    lh_p6 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    rh_p6 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    
+    if not all([lh_p1 is not None, rh_p1 is not None, lh_p6 is not None, rh_p6 is not None]):
+        return None
+    
+    hip_center_p1 = get_midpoint(lh_p1, rh_p1)
+    hip_center_p6 = get_midpoint(lh_p6, rh_p6)
+    
+    # Calculate forward movement (assuming Z is target direction)
+    forward_shift = hip_center_p6[2] - hip_center_p1[2]
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=forward_shift * 100,  # Convert to cm
+        unit="cm",
+        ideal_range=(2.0, 8.0),
+        notes="Forward shift of body position from address. Positive values indicate movement toward target."
+    )
+
+def calculate_weight_transfer_completion_p6(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates weight transfer completion at P6."""
+    p_position = "P6"
+    kpi_name = "Weight Transfer Completion"
+    
+    # Calculate weight distribution at P6
+    left_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    left_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ANKLE)
+    right_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_ANKLE)
+    
+    if not all([left_hip is not None, right_hip is not None, left_ankle is not None, right_ankle is not None]):
+        return None
+    
+    mid_hip = get_midpoint(left_hip, right_hip)
+    lead_ankle_x = left_ankle[0]
+    trail_ankle_x = right_ankle[0]
+    
+    min_ankle_x = min(lead_ankle_x, trail_ankle_x)
+    max_ankle_x = max(lead_ankle_x, trail_ankle_x)
+    
+    if (max_ankle_x - min_ankle_x) < 1e-6:
+        return None
+    
+    com_x = mid_hip[0]
+    relative_pos = (com_x - min_ankle_x) / (max_ankle_x - min_ankle_x)
+    
+    if lead_ankle_x < trail_ankle_x:
+        weight_on_lead_p6 = (1.0 - np.clip(relative_pos, 0, 1)) * 100
+    else:
+        weight_on_lead_p6 = np.clip(relative_pos, 0, 1) * 100
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=weight_on_lead_p6,
+        unit="%",
+        ideal_range=(80.0, 90.0),
+        notes="Percentage of weight on lead foot just before impact."
+    )
+
+
+# --- P7 KPI Functions ---
+
+def extract_p7_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
+    """Extracts KPIs for P7 (Impact) position."""
+    kpis = []
+    
+    # Impact position analysis
+    impact_position_kpi = calculate_impact_position_p7(swing_input)
+    if impact_position_kpi: kpis.append(impact_position_kpi)
+    
+    # Shaft lean at impact
+    shaft_lean_kpi = calculate_shaft_lean_p7(swing_input)
+    if shaft_lean_kpi: kpis.append(shaft_lean_kpi)
+    
+    # Hip rotation at impact
+    hip_rotation_kpi = calculate_hip_rotation_impact_p7(swing_input)
+    if hip_rotation_kpi: kpis.append(hip_rotation_kpi)
+    
+    return kpis
+
+def calculate_impact_position_p7(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates impact position relative to setup."""
+    p_position = "P7"
+    kpi_name = "Impact Position Accuracy"
+    
+    # Compare wrist position between P1 and P7
+    lw_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_WRIST)
+    rw_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_WRIST)
+    lw_p7 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    rw_p7 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_WRIST)
+    
+    if not all([lw_p1 is not None, rw_p1 is not None, lw_p7 is not None, rw_p7 is not None]):
+        return None
+    
+    wrist_center_p1 = get_midpoint(lw_p1, rw_p1)
+    wrist_center_p7 = get_midpoint(lw_p7, rw_p7)
+    
+    # Calculate deviation from original position
+    position_deviation = np.linalg.norm(wrist_center_p7 - wrist_center_p1)
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=position_deviation * 100,  # Convert to cm
+        unit="cm",
+        ideal_range=(0.0, 5.0),
+        notes="Deviation of impact position from address position. Lower values indicate better consistency."
+    )
+
+def calculate_shaft_lean_p7(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates shaft lean at impact using wrist and elbow positions."""
+    p_position = "P7"
+    kpi_name = "Shaft Lean at Impact"
+    
+    # Using left arm for right-handed golfer
+    le_p7 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ELBOW)
+    lw_p7 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    
+    if not all([le_p7 is not None, lw_p7 is not None]):
+        return None
+    
+    # Calculate shaft vector (elbow to wrist as proxy)
+    shaft_vector = lw_p7 - le_p7
+    
+    # Calculate angle with vertical
+    vertical_vector = np.array([0, 1, 0])
+    shaft_lean_angle = calculate_angle_3d(le_p7 + vertical_vector, le_p7, lw_p7)
+    
+    # Convert to forward lean (positive values)
+    if shaft_vector[2] > 0:  # Forward lean (toward target)
+        lean_value = 90 - shaft_lean_angle
+    else:  # Backward lean
+        lean_value = -(90 - shaft_lean_angle)
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=lean_value,
+        unit="degrees",
+        ideal_range=(2.0, 8.0),
+        notes="Forward shaft lean at impact. Positive values indicate forward lean toward target."
+    )
+
+def calculate_hip_rotation_impact_p7(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates hip rotation at impact relative to address."""
+    p_position = "P7"
+    kpi_name = "Hip Rotation at Impact"
+    
+    # Get hip positions at P1 and P7
+    lh_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_HIP)
+    rh_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_HIP)
+    lh_p7 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    rh_p7 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    
+    if not all([lh_p1 is not None, rh_p1 is not None, lh_p7 is not None, rh_p7 is not None]):
+        return None
+    
+    # Calculate hip line vectors in XZ plane
+    hip_line_p1 = np.array([rh_p1[0] - lh_p1[0], rh_p1[2] - lh_p1[2]])
+    hip_line_p7 = np.array([rh_p7[0] - lh_p7[0], rh_p7[2] - lh_p7[2]])
+    
+    if np.linalg.norm(hip_line_p1) == 0 or np.linalg.norm(hip_line_p7) == 0:
+        return None
+    
+    # Calculate angle between hip lines
+    unit_vec_p1 = hip_line_p1 / np.linalg.norm(hip_line_p1)
+    unit_vec_p7 = hip_line_p7 / np.linalg.norm(hip_line_p7)
+    
+    dot_product = np.dot(unit_vec_p1, unit_vec_p7)
+    angle_rad = math.acos(np.clip(dot_product, -1.0, 1.0))
+    angle_deg = math.degrees(angle_rad)
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=angle_deg,
+        unit="degrees",
+        ideal_range=(30.0, 45.0),
+        notes="Hip rotation from address to impact position."
+    )
+
+
+# --- P8 KPI Functions ---
+
+def extract_p8_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
+    """Extracts KPIs for P8 (Release) position."""
+    kpis = []
+    
+    # Release extension analysis
+    release_extension_kpi = calculate_release_extension_p8(swing_input)
+    if release_extension_kpi: kpis.append(release_extension_kpi)
+    
+    # Follow-through analysis
+    follow_through_kpi = calculate_follow_through_p8(swing_input)
+    if follow_through_kpi: kpis.append(follow_through_kpi)
+    
+    # Extension quality
+    extension_quality_kpi = calculate_extension_quality_p8(swing_input)
+    if extension_quality_kpi: kpis.append(extension_quality_kpi)
+    
+    return kpis
+
+def calculate_release_extension_p8(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates arm extension in release phase."""
+    p_position = "P8"
+    kpi_name = "Release Extension Angle"
+    
+    # Calculate arm extension angle
+    ls_p8 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    le_p8 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ELBOW)
+    lw_p8 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    
+    if not all([ls_p8 is not None, le_p8 is not None, lw_p8 is not None]):
+        return None
+    
+    # Calculate elbow angle (shoulder-elbow-wrist)
+    elbow_angle = calculate_angle_3d(ls_p8, le_p8, lw_p8)
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=elbow_angle,
+        unit="degrees",
+        ideal_range=(160.0, 180.0),
+        notes="Elbow extension angle in release phase. Higher values indicate better extension."
+    )
+
+def calculate_follow_through_p8(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates follow-through momentum."""
+    p_position = "P8"
+    kpi_name = "Follow-Through Momentum"
+    
+    # Compare wrist positions between P7 and P8
+    lw_p7 = get_average_keypoint_position_for_phase(swing_input, "P7", KP_LEFT_WRIST)
+    lw_p8 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    
+    if not all([lw_p7 is not None, lw_p8 is not None]):
+        return None
+    
+    # Calculate distance moved in follow-through
+    follow_through_distance = np.linalg.norm(lw_p8 - lw_p7)
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=follow_through_distance * 100,  # Convert to cm
+        unit="cm",
+        ideal_range=(20.0, 40.0),
+        notes="Distance moved by wrists from impact to release. Indicates follow-through momentum."
+    )
+
+def calculate_extension_quality_p8(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates quality of extension through impact zone."""
+    p_position = "P8"
+    kpi_name = "Extension Quality Score"
+    
+    # Compare arm length between P7 and P8
+    ls_p7 = get_average_keypoint_position_for_phase(swing_input, "P7", KP_LEFT_SHOULDER)
+    lw_p7 = get_average_keypoint_position_for_phase(swing_input, "P7", KP_LEFT_WRIST)
+    ls_p8 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    lw_p8 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_WRIST)
+    
+    if not all([ls_p7 is not None, lw_p7 is not None, ls_p8 is not None, lw_p8 is not None]):
+        return None
+    
+    arm_length_p7 = np.linalg.norm(lw_p7 - ls_p7)
+    arm_length_p8 = np.linalg.norm(lw_p8 - ls_p8)
+    
+    # Calculate extension improvement
+    extension_improvement = ((arm_length_p8 - arm_length_p7) / arm_length_p7) * 100
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=extension_improvement,
+        unit="%",
+        ideal_range=(5.0, 15.0),
+        notes="Percentage improvement in arm extension from impact to release."
+    )
+
+
+# --- P9 KPI Functions ---
+
+def extract_p9_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
+    """Extracts KPIs for P9 (Finish) position."""
+    kpis = []
+    
+    # Lead arm position at finish
+    finish_arm_position_kpi = calculate_finish_arm_position_p9(swing_input)
+    if finish_arm_position_kpi: kpis.append(finish_arm_position_kpi)
+    
+    # Balance assessment
+    balance_kpi = calculate_balance_p9(swing_input)
+    if balance_kpi: kpis.append(balance_kpi)
+    
+    # Rotation completion
+    rotation_completion_kpi = calculate_rotation_completion_p9(swing_input)
+    if rotation_completion_kpi: kpis.append(rotation_completion_kpi)
+    
+    return kpis
+
+def calculate_finish_arm_position_p9(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates lead arm position at finish."""
+    p_position = "P9"
+    kpi_name = "Lead Arm Finish Position"
+    
+    ls_p9 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    le_p9 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ELBOW)
+    
+    if not all([ls_p9 is not None, le_p9 is not None]):
+        return None
+    
+    # Calculate arm angle relative to horizontal
+    arm_vector = le_p9 - ls_p9
+    horizontal_vector = np.array([1, 0, 0])  # Assuming X is horizontal
+    
+    # Project arm vector onto horizontal plane
+    arm_horizontal = np.array([arm_vector[0], 0, arm_vector[2]])
+    
+    if np.linalg.norm(arm_horizontal) > 0:
+        angle_with_horizontal = calculate_angle_3d(
+            ls_p9 + arm_horizontal, ls_p9, le_p9
+        )
+    else:
+        angle_with_horizontal = 90.0
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=angle_with_horizontal,
+        unit="degrees",
+        ideal_range=(85.0, 95.0),
+        notes="Lead arm angle relative to horizontal at finish. Should be approximately parallel to ground."
+    )
+
+def calculate_balance_p9(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates balance at finish position."""
+    p_position = "P9"
+    kpi_name = "Finish Balance Score"
+    
+    # Calculate center of mass position relative to support base
+    left_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    left_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ANKLE)
+    right_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_ANKLE)
+    
+    if not all([left_hip is not None, right_hip is not None, left_ankle is not None, right_ankle is not None]):
+        return None
+    
+    hip_center = get_midpoint(left_hip, right_hip)
+    ankle_center = get_midpoint(left_ankle, right_ankle)
+    
+    # Calculate lateral deviation of COM from support base
+    lateral_deviation = abs(hip_center[0] - ankle_center[0])
+    
+    # Convert to balance score (100 = perfect balance)
+    balance_score = max(0, 100 - lateral_deviation * 1000)  # Scale factor may need adjustment
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=balance_score,
+        unit="%",
+        ideal_range=(85.0, 100.0),
+        notes="Balance score at finish position. Higher values indicate better balance."
+    )
+
+def calculate_rotation_completion_p9(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates rotation completion at finish."""
+    p_position = "P9"
+    kpi_name = "Rotation Completion"
+    
+    # Compare shoulder rotation between P1 and P9
+    ls_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_SHOULDER)
+    rs_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_SHOULDER)
+    ls_p9 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    rs_p9 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_SHOULDER)
+    
+    if not all([ls_p1 is not None, rs_p1 is not None, ls_p9 is not None, rs_p9 is not None]):
+        return None
+    
+    # Calculate shoulder line vectors in XZ plane
+    shoulder_line_p1 = np.array([rs_p1[0] - ls_p1[0], rs_p1[2] - ls_p1[2]])
+    shoulder_line_p9 = np.array([rs_p9[0] - ls_p9[0], rs_p9[2] - ls_p9[2]])
+    
+    if np.linalg.norm(shoulder_line_p1) == 0 or np.linalg.norm(shoulder_line_p9) == 0:
+        return None
+    
+    # Calculate total rotation angle
+    unit_vec_p1 = shoulder_line_p1 / np.linalg.norm(shoulder_line_p1)
+    unit_vec_p9 = shoulder_line_p9 / np.linalg.norm(shoulder_line_p9)
+    
+    dot_product = np.dot(unit_vec_p1, unit_vec_p9)
+    angle_rad = math.acos(np.clip(dot_product, -1.0, 1.0))
+    angle_deg = math.degrees(angle_rad)
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=angle_deg,
+        unit="degrees",
+        ideal_range=(120.0, 150.0),
+        notes="Total shoulder rotation from address to finish position."
+    )
+
+
+# --- P10 KPI Functions ---
+
+def extract_p10_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
+    """Extracts KPIs for P10 (End of Swing) position."""
+    kpis = []
+    
+    # Final balance assessment
+    final_balance_kpi = calculate_final_balance_p10(swing_input)
+    if final_balance_kpi: kpis.append(final_balance_kpi)
+    
+    # Weight distribution at end
+    final_weight_distribution_kpi = calculate_final_weight_distribution_p10(swing_input)
+    if final_weight_distribution_kpi: kpis.append(final_weight_distribution_kpi)
+    
+    # Stability assessment
+    stability_kpi = calculate_stability_p10(swing_input)
+    if stability_kpi: kpis.append(stability_kpi)
+    
+    return kpis
+
+def calculate_final_balance_p10(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates final balance at end of swing."""
+    p_position = "P10"
+    kpi_name = "Final Balance Score"
+    
+    # Assess balance using multiple body segments
+    left_shoulder = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    right_shoulder = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_SHOULDER)
+    left_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    left_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ANKLE)
+    right_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_ANKLE)
+    
+    if not all([left_shoulder is not None, right_shoulder is not None, left_hip is not None, 
+                right_hip is not None, left_ankle is not None, right_ankle is not None]):
+        return None
+    
+    # Calculate center points
+    shoulder_center = get_midpoint(left_shoulder, right_shoulder)
+    hip_center = get_midpoint(left_hip, right_hip)
+    ankle_center = get_midpoint(left_ankle, right_ankle)
+    
+    # Calculate alignment of body segments (should be vertically aligned for good balance)
+    shoulder_hip_deviation = abs(shoulder_center[0] - hip_center[0])
+    hip_ankle_deviation = abs(hip_center[0] - ankle_center[0])
+    
+    # Calculate overall balance score
+    total_deviation = shoulder_hip_deviation + hip_ankle_deviation
+    balance_score = max(0, 100 - total_deviation * 500)  # Scale factor may need adjustment
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=balance_score,
+        unit="%",
+        ideal_range=(90.0, 100.0),
+        notes="Final balance score based on body segment alignment. Higher values indicate better balance."
+    )
+
+def calculate_final_weight_distribution_p10(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates final weight distribution."""
+    p_position = "P10"
+    kpi_name = "Final Weight Distribution"
+    
+    # Calculate weight distribution at P10
+    left_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    left_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_ANKLE)
+    right_ankle = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_ANKLE)
+    
+    if not all([left_hip is not None, right_hip is not None, left_ankle is not None, right_ankle is not None]):
+        return None
+    
+    mid_hip = get_midpoint(left_hip, right_hip)
+    lead_ankle_x = left_ankle[0]
+    trail_ankle_x = right_ankle[0]
+    
+    min_ankle_x = min(lead_ankle_x, trail_ankle_x)
+    max_ankle_x = max(lead_ankle_x, trail_ankle_x)
+    
+    if (max_ankle_x - min_ankle_x) < 1e-6:
+        return None
+    
+    com_x = mid_hip[0]
+    relative_pos = (com_x - min_ankle_x) / (max_ankle_x - min_ankle_x)
+    
+    if lead_ankle_x < trail_ankle_x:
+        weight_on_lead_p10 = (1.0 - np.clip(relative_pos, 0, 1)) * 100
+    else:
+        weight_on_lead_p10 = np.clip(relative_pos, 0, 1) * 100
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=weight_on_lead_p10,
+        unit="%",
+        ideal_range=(85.0, 95.0),
+        notes="Final weight distribution on lead foot. Should be predominantly on lead side."
+    )
+
+def calculate_stability_p10(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """Calculates stability at end of swing."""
+    p_position = "P10"
+    kpi_name = "End Position Stability"
+    
+    # Check if all frames in P10 show consistent position (low variance)
+    phase = get_phase_by_name(swing_input, p_position)
+    if not phase:
+        return None
+    
+    hip_positions = []
+    for i in range(phase['start_frame_index'], phase['end_frame_index'] + 1):
+        if i < len(swing_input['frames']):
+            frame_data = swing_input['frames'][i]
+            lh = get_keypoint(frame_data, KP_LEFT_HIP)
+            rh = get_keypoint(frame_data, KP_RIGHT_HIP)
+            if lh is not None and rh is not None:
+                hip_center = get_midpoint(lh, rh)
+                hip_positions.append(hip_center)
+    
+    if len(hip_positions) < 2:
+        return None
+    
+    # Calculate variance in hip position
+    hip_positions_array = np.array(hip_positions)
+    position_variance = np.var(hip_positions_array, axis=0)
+    total_variance = np.sum(position_variance)
+    
+    # Convert to stability score (lower variance = higher stability)
+    stability_score = max(0, 100 - total_variance * 10000)  # Scale factor may need adjustment
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=stability_score,
+        unit="%",
+        ideal_range=(85.0, 100.0),
+        notes="Stability score based on position consistency during end phase. Higher values indicate less movement."
+    )
+
+
+def calculate_hip_lateral_sway_p4(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """
+    Calculates hip lateral sway at P4 (Top of Backswing) relative to P1 (Address).
+    Lateral sway is the side-to-side movement of the hip center during the backswing.
+    Excessive sway can lead to inconsistent ball striking and loss of power.
+    """
+    p_position = "P4"
+    kpi_name = "Hip Lateral Sway at P4"
+    
+    # Get hip positions for P1 (reference) and P4
+    left_hip_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_HIP)
+    right_hip_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_HIP)
+    left_hip_p4 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip_p4 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    
+    if not all([left_hip_p1 is not None, right_hip_p1 is not None, 
+                left_hip_p4 is not None, right_hip_p4 is not None]):
+        return None
+    
+    # Calculate hip center for both positions
+    hip_center_p1 = get_midpoint(left_hip_p1, right_hip_p1)
+    hip_center_p4 = get_midpoint(left_hip_p4, right_hip_p4)
+    
+    # Lateral sway is the movement in the X direction (side-to-side)
+    # Assuming X is the left-right axis
+    lateral_sway = hip_center_p4[0] - hip_center_p1[0]
+    
+    # Convert to meaningful units (assuming coordinate system is in meters)
+    # Positive sway typically indicates movement toward the trail side (right for RH golfer)
+    # Negative sway indicates movement toward the lead side (left for RH golfer)
+    sway_distance = abs(lateral_sway) * 100  # Convert to centimeters for readability
+    
+    # Determine direction for notes
+    direction = "toward trail side" if lateral_sway > 0 else "toward lead side"
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=sway_distance,
+        unit="cm",
+        ideal_range=(0.0, 5.0),  # Minimal sway is ideal
+        notes=f"Lateral hip movement from address to top of backswing. Movement {direction}. Excessive sway can cause inconsistency."
+    )
+
+
+def calculate_spine_angle_p1(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """
+    Calculates spine angle at P1 (Address) in the sagittal plane.
+    This measures the forward tilt of the spine from vertical, which is critical for proper setup.
+    """
+    p_position = "P1"
+    kpi_name = "Spine Angle at Address (Sagittal)"
+    
+    # Get keypoints for spine calculation
+    left_shoulder = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    right_shoulder = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_SHOULDER)
+    left_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    
+    if not all([left_shoulder is not None, right_shoulder is not None, 
+                left_hip is not None, right_hip is not None]):
+        return None
+    
+    # Calculate midpoints for spine representation
+    mid_shoulder = get_midpoint(left_shoulder, right_shoulder)
+    mid_hip = get_midpoint(left_hip, right_hip)
+    
+    # Spine vector (from hips to shoulders)
+    spine_vector = mid_shoulder - mid_hip
+    
+    # Vertical reference vector (assuming Y is up)
+    vertical_vector = np.array([0, 1, 0])
+    
+    # Calculate angle between spine and vertical in sagittal plane (YZ plane)
+    # Project spine vector onto YZ plane to get side view
+    spine_sagittal = np.array([0, spine_vector[1], spine_vector[2]])
+    
+    if np.linalg.norm(spine_sagittal) == 0:
+        return None
+    
+    # Calculate angle from vertical
+    spine_angle = calculate_angle_3d(
+        mid_hip + vertical_vector,
+        mid_hip,
+        mid_hip + spine_sagittal
+    )
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=spine_angle,
+        unit="degrees",
+        ideal_range=(25.0, 40.0),  # Proper forward spine tilt for iron shots
+        notes="Forward tilt of spine from vertical at address. Critical for proper setup and rotation."
+    )
+
+
+def calculate_reverse_spine_angle_p4(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """
+    Calculates reverse spine angle at P4 (Top of Backswing).
+    Reverse spine angle occurs when the spine tilts away from the target (right for RH golfer)
+    at the top of the backswing. This is generally considered a fault that can lead to
+    inconsistent ball striking and back problems.
+    """
+    p_position = "P4"
+    kpi_name = "Reverse Spine Angle at P4"
+    
+    # Get spine keypoints for P1 (reference) and P4
+    left_shoulder_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_SHOULDER)
+    right_shoulder_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_SHOULDER)
+    left_hip_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_HIP)
+    right_hip_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_HIP)
+    
+    left_shoulder_p4 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_SHOULDER)
+    right_shoulder_p4 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_SHOULDER)
+    left_hip_p4 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    right_hip_p4 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    
+    if not all([left_shoulder_p1 is not None, right_shoulder_p1 is not None,
+                left_hip_p1 is not None, right_hip_p1 is not None,
+                left_shoulder_p4 is not None, right_shoulder_p4 is not None,
+                left_hip_p4 is not None, right_hip_p4 is not None]):
+        return None
+    
+    # Calculate spine vectors for both positions
+    mid_shoulder_p1 = get_midpoint(left_shoulder_p1, right_shoulder_p1)
+    mid_hip_p1 = get_midpoint(left_hip_p1, right_hip_p1)
+    spine_vector_p1 = mid_shoulder_p1 - mid_hip_p1
+    
+    mid_shoulder_p4 = get_midpoint(left_shoulder_p4, right_shoulder_p4)
+    mid_hip_p4 = get_midpoint(left_hip_p4, right_hip_p4)
+    spine_vector_p4 = mid_shoulder_p4 - mid_hip_p4
+    
+    # Project both spine vectors onto the frontal plane (XY plane, assuming Z is target line)
+    spine_frontal_p1 = np.array([spine_vector_p1[0], spine_vector_p1[1], 0])
+    spine_frontal_p4 = np.array([spine_vector_p4[0], spine_vector_p4[1], 0])
+    
+    if np.linalg.norm(spine_frontal_p1) == 0 or np.linalg.norm(spine_frontal_p4) == 0:
+        return None
+    
+    # Calculate the change in spine angle in the frontal plane
+    # This represents the lateral tilt of the spine
+    angle_change = calculate_angle_3d(
+        mid_hip_p4 + spine_frontal_p1,
+        mid_hip_p4,
+        mid_hip_p4 + spine_frontal_p4
+    )
+    
+    # Determine direction of tilt
+    # For RH golfer, positive X is typically toward target (left), negative X is away from target (right)
+    # Reverse spine angle is tilting away from target (negative X direction for RH golfer)
+    x_tilt_change = spine_frontal_p4[0] - spine_frontal_p1[0]
+    
+    # If the spine has tilted away from target (right for RH golfer), this is reverse spine angle
+    reverse_spine_severity = -x_tilt_change if x_tilt_change < 0 else 0
+    reverse_spine_angle = math.degrees(math.atan2(abs(x_tilt_change), spine_frontal_p4[1])) if spine_frontal_p4[1] != 0 else 0
+    
+    # Use the actual measured angle change, but note direction
+    direction_note = "away from target (reverse spine)" if x_tilt_change < 0 else "toward target"
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=reverse_spine_angle,
+        unit="degrees",
+        ideal_range=(0.0, 5.0),  # Minimal reverse spine angle is ideal
+        notes=f"Lateral spine tilt at top of backswing. Current tilt: {direction_note}. Reverse spine angle (away from target) should be minimized."
+    )
+
+
 # --- Main function to extract all KPIs ---
 def extract_all_kpis(swing_input: SwingVideoAnalysisInput) -> List[BiomechanicalKPI]:
     """
@@ -415,18 +1593,53 @@ def extract_all_kpis(swing_input: SwingVideoAnalysisInput) -> List[Biomechanical
     weight_dist_p1 = estimate_weight_distribution_p1(swing_input)
     if weight_dist_p1: all_kpis.append(weight_dist_p1)
 
-    # P4 KPIs
+    # Additional P1 KPIs
+    spine_angle_p1 = calculate_spine_angle_p1(swing_input)
+    if spine_angle_p1: all_kpis.append(spine_angle_p1)
+
+    # P2 KPIs (Takeaway)
+    p2_kpis = extract_p2_kpis(swing_input)
+    all_kpis.extend(p2_kpis)
+
+    # P3 KPIs (Halfway Back)
+    p3_kpis = extract_p3_kpis(swing_input)
+    all_kpis.extend(p3_kpis)
+
+    # P4 KPIs (Top of Backswing)
     shoulder_rot_p4 = calculate_shoulder_rotation_p4(swing_input)
     if shoulder_rot_p4: all_kpis.append(shoulder_rot_p4)
+    
+    hip_sway_p4 = calculate_hip_lateral_sway_p4(swing_input)
+    if hip_sway_p4: all_kpis.append(hip_sway_p4)
+    
+    reverse_spine_p4 = calculate_reverse_spine_angle_p4(swing_input)
+    if reverse_spine_p4: all_kpis.append(reverse_spine_p4)
 
-    # TODO: Implement more KPIs as per requirements:
-    # P1: Alignment, Ball Position (requires ball detection or manual input)
-    # P2: Takeaway sync, Club Position/Face (requires club tracking or assumptions)
-    # P4: Hip Rotation, Lead Wrist Position (complex, needs careful definition), Weight Transfer
-    # P7: Body Position, Hand Position/Shaft Lean, Weight Transfer, Clubface Alignment (very hard from video alone)
-    # P10: Balance, Full Rotation, Hand/Club Position
+    # P5 KPIs (Early Downswing)
+    p5_kpis = extract_p5_kpis(swing_input)
+    all_kpis.extend(p5_kpis)
 
-    print(f"Extracted {len(all_kpis)} KPIs.")
+    # P6 KPIs (Pre-Impact)
+    p6_kpis = extract_p6_kpis(swing_input)
+    all_kpis.extend(p6_kpis)
+
+    # P7 KPIs (Impact)
+    p7_kpis = extract_p7_kpis(swing_input)
+    all_kpis.extend(p7_kpis)
+
+    # P8 KPIs (Release)
+    p8_kpis = extract_p8_kpis(swing_input)
+    all_kpis.extend(p8_kpis)
+
+    # P9 KPIs (Finish)
+    p9_kpis = extract_p9_kpis(swing_input)
+    all_kpis.extend(p9_kpis)
+
+    # P10 KPIs (End of Swing)
+    p10_kpis = extract_p10_kpis(swing_input)
+    all_kpis.extend(p10_kpis)
+
+    print(f"Extracted {len(all_kpis)} KPIs across all P-positions.")
     return all_kpis
 
 if __name__ == '__main__':
@@ -550,4 +1763,18 @@ if __name__ == '__main__':
     sr_p4_less = calculate_shoulder_rotation_p4(sample_swing_input_less_rotation)
     if sr_p4_less: print(sr_p4_less) # Expected: close to 45
 
-"""
+    print("\n--- Example: Lead Wrist Angle P4 ---")
+    lwa_p4 = calculate_lead_wrist_angle_p4(sample_swing_input)
+    if lwa_p4: print(lwa_p4)
+
+    print("\n--- Example: Hip Lateral Sway P4 ---")
+    hls_p4 = calculate_hip_lateral_sway_p4(sample_swing_input)
+    if hls_p4: print(hls_p4)
+
+    print("\n--- Example: Spine Angle P1 ---")
+    sa_p1 = calculate_spine_angle_p1(sample_swing_input)
+    if sa_p1: print(sa_p1)
+
+    print("\n--- Example: Reverse Spine Angle P4 ---")
+    rsa_p4 = calculate_reverse_spine_angle_p4(sample_swing_input)
+    if rsa_p4: print(rsa_p4)
