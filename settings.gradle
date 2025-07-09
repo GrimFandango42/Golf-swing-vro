@@ -10,12 +10,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://maven.google.com' }
         maven { url 'https://jitpack.io' }
-        // Repository for AICore SDK
-        maven { url 'https://developer.android.com/studio/build/maven-central' }
-        // Repository for MediaPipe
-        maven { url 'https://storage.googleapis.com/mediapipe-assets/maven' }
     }
 }
 rootProject.name = "Golf Swing VRO"
