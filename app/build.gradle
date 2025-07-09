@@ -4,7 +4,6 @@ plugins {
     id 'kotlin-kapt'
     id 'dagger.hilt.android.plugin'
     id 'kotlin-parcelize'
-    id 'androidx.benchmark'
 }
 
 android {
@@ -74,15 +73,6 @@ android {
             buildConfigField "boolean", "PERFORMANCE_MONITORING", "true"
         }
         
-        benchmark {
-            initWith debug
-            signingConfig signingConfigs.debug
-            matchingFallbacks = ['release']
-            debuggable false
-            
-            buildConfigField "boolean", "DEBUG_MODE", "false"
-            buildConfigField "boolean", "PERFORMANCE_MONITORING", "true"
-        }
     }
     
     compileOptions {
@@ -258,7 +248,6 @@ dependencies {
     implementation "com.google.accompanist:accompanist-permissions:0.32.0"
     
     // Performance monitoring and profiling
-    implementation "androidx.benchmark:benchmark-macro-junit4:1.2.2"
     implementation "androidx.tracing:tracing:1.2.0"
     implementation "androidx.startup:startup-runtime:1.1.1"
     
@@ -303,7 +292,6 @@ dependencies {
     androidTestImplementation "androidx.test:rules:1.5.0"
     androidTestImplementation "androidx.compose.ui:ui-test-junit4"
     androidTestImplementation "com.google.dagger:hilt-android-testing:2.48"
-    androidTestImplementation "androidx.benchmark:benchmark-junit4:1.2.2"
     androidTestUtil "androidx.test:orchestrator:1.4.2"
     kaptAndroidTest "com.google.dagger:hilt-compiler:2.48"
     
