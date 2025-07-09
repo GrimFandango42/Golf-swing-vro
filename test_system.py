@@ -79,7 +79,7 @@ def test_api_key_configuration():
     if Path(".env").exists():
         with open(".env", "r") as f:
             content = f.read()
-            if "AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04" in content:
+            if "GEMINI_API_KEY" in content:
                 locations.append(".env file")
                 print("✅ .env file")
     
@@ -87,7 +87,7 @@ def test_api_key_configuration():
     if Path("feedback_generation.py").exists():
         with open("feedback_generation.py", "r") as f:
             content = f.read()
-            if "AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04" in content:
+            if "GEMINI_API_KEY" in content:
                 locations.append("feedback_generation.py")
                 print("✅ feedback_generation.py")
     

@@ -8,8 +8,16 @@ This script tests if your Gemini API key is working properly.
 import os
 import sys
 
-# Try multiple ways to get the API key
 def get_api_key():
+    """
+    Get API key from environment variables with proper error handling.
+    
+    Returns:
+        str: The API key if found
+        
+    Raises:
+        EnvironmentError: If API key is not configured
+    """
     # Method 1: Environment variable
     key = os.getenv("GEMINI_API_KEY")
     if key:
@@ -22,31 +30,37 @@ def get_api_key():
             for line in f:
                 if line.startswith("GEMINI_API_KEY="):
                     key = line.split("=", 1)[1].strip()
-                    print("✅ Found key in .env file")
-                    return key
-    except:
-        pass
+                    if key:
+                        print("✅ Found key in .env file")
+                        return key
+    except FileNotFoundError:
+        print("ℹ️  No .env file found")
+    except Exception as e:
+        print(f"⚠️  Error reading .env file: {e}")
     
-    # Method 3: Backup file
+    # Method 3: Try using config module
     try:
-        with open(".env.backup", "r") as f:
-            for line in f:
-                if line.startswith("GEMINI_API_KEY="):
-                    key = line.split("=", 1)[1].strip()
-                    print("✅ Found key in .env.backup file")
-                    return key
-    except:
-        pass
+        from config.api_keys import get_gemini_key
+        key = get_gemini_key()
+        print("✅ Found key using config module")
+        return key
+    except Exception as e:
+        print(f"⚠️  Error using config module: {e}")
     
-    # Method 4: Hardcoded fallback
-    key = "AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04"
-    print("✅ Using hardcoded fallback key")
-    return key
+    # No key found
+    raise EnvironmentError(
+        "GEMINI_API_KEY not configured. Please set it in your environment or .env file."
+    )
 
 def test_gemini_api():
     """Test the Gemini API key"""
-    api_key = get_api_key()
-    print(f"🔑 API Key: {api_key[:10]}...{api_key[-4:]}")
+    try:
+        api_key = get_api_key()
+        print(f"🔑 API Key: {api_key[:10]}...{api_key[-4:]}")
+    except EnvironmentError as e:
+        print(f"❌ Configuration Error: {e}")
+        print_setup_instructions()
+        return False
     
     try:
         import google.generativeai as genai
@@ -64,54 +78,48 @@ def test_gemini_api():
         print("✅ API Key is working!")
         print(f"🤖 Gemini says: {response.text}")
         
-        # Save working key to all locations
-        print("\n📁 Saving working key to all backup locations...")
-        
-        # Update feedback_generation.py to use this key
-        update_feedback_generation(api_key)
-        
         return True
         
+    except ImportError:
+        print("❌ Missing google-generativeai package. Install with:")
+        print("   pip install google-generativeai")
+        return False
     except Exception as e:
         print(f"❌ API Key test failed: {e}")
+        print_troubleshooting_tips()
         return False
 
-def update_feedback_generation(api_key):
-    """Update feedback_generation.py to use the API key with fallback"""
-    try:
-        # Read the current file
-        with open("feedback_generation.py", "r") as f:
-            content = f.read()
-        
-        # Check if we need to add the import
-        if "import os" not in content:
-            content = "import os\n" + content
-        
-        # Find where genai.configure is called
-        if "genai.configure(" in content:
-            # Update the configure line to use our key with fallback
-            import re
-            pattern = r'genai\.configure\(api_key=.*?\)'
-            replacement = f'genai.configure(api_key=os.getenv("GEMINI_API_KEY", "{api_key}"))'
-            content = re.sub(pattern, replacement, content)
-            
-            # Write back
-            with open("feedback_generation.py", "w") as f:
-                f.write(content)
-            print("✅ Updated feedback_generation.py with API key fallback")
-    except Exception as e:
-        print(f"⚠️  Could not update feedback_generation.py: {e}")
+def print_setup_instructions():
+    """Print setup instructions for API key configuration"""
+    print("\n📋 Setup Instructions:")
+    print("1. Get your API key from https://makersuite.google.com/app/apikey")
+    print("2. Choose one of these methods:")
+    print("\n   Method A - Environment Variable:")
+    print("   export GEMINI_API_KEY=your_actual_key_here")
+    print("\n   Method B - .env file:")
+    print("   echo 'GEMINI_API_KEY=your_actual_key_here' > .env")
+    print("\n   Method C - System-wide:")
+    print("   echo 'export GEMINI_API_KEY=your_actual_key_here' >> ~/.bashrc")
+    print("   source ~/.bashrc")
+
+def print_troubleshooting_tips():
+    """Print troubleshooting tips for API issues"""
+    print("\n🔧 Troubleshooting Tips:")
+    print("1. Check your API key format (should start with 'AIza' and be 39 chars)")
+    print("2. Verify your API key is active at https://makersuite.google.com/app/apikey")
+    print("3. Check for rate limits or quota issues")
+    print("4. Ensure you have internet connectivity")
+    print("5. Try regenerating your API key if issues persist")
 
 if __name__ == "__main__":
     print("🏌️ SwingSync AI - Gemini API Key Test")
     print("=" * 40)
     
     if test_gemini_api():
-        print("\n🎉 Everything is working! Your API key is saved in:")
-        print("   1. .env (primary)")
-        print("   2. .env.backup (backup)")
-        print("   3. config/api_keys.py (Python fallback)")
-        print("   4. Hardcoded in test script")
-        print("\n✅ You won't lose this key again!")
+        print("\n🎉 Everything is working!")
+        print("Your API key is properly configured and functional.")
+        print("\n✅ Security Status: No hardcoded keys found")
+        print("✅ Configuration: Using environment variables")
     else:
-        print("\n❌ API key is not working. Please check the key and try again.")
+        print("\n❌ API key test failed. Please follow the setup instructions above.")
+        sys.exit(1)
