@@ -24,8 +24,15 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
     
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+    
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+    
+    - name: Download Gradle Wrapper
+      run: |
+        curl -L https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
     
     - name: Clean project
       run: ./gradlew clean

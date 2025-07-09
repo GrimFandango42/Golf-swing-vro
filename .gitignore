@@ -190,3 +190,6 @@ user_data/
 uploads/
 temp/
 cache/
+
+# Gradle wrapper JAR (will be downloaded by CI)
+gradle/wrapper/gradle-wrapper.jar
