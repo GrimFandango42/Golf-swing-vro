@@ -1,0 +1,39 @@
+# SwingSync AI Mobile Requirements
+# Optimized for Termux/Android deployment
+
+# Core API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# Database - SQLite only for mobile
+sqlalchemy>=2.0.0
+
+# Authentication
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# AI and ML (lightweight versions)
+google-generativeai>=0.3.0
+numpy>=1.24.0
+# Skip opencv-python, mediapipe, tensorflow for mobile
+
+# Utilities
+python-dotenv>=1.0.0
+httpx>=0.25.0
+aiofiles>=23.2.0
+
+# Data processing
+pandas>=2.0.0
+matplotlib>=3.7.0
+
+# Storage
+minio>=7.2.0
+
+# Monitoring (optional for mobile)
+# prometheus-client>=0.19.0
+
+# Development
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

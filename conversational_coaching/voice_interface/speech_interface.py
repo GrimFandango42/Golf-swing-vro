@@ -461,10 +461,42 @@ def preprocess_audio(audio_data: bytes, config: AudioConfig) -> bytes:
         return audio_data
 
 def apply_noise_reduction(audio_array: np.ndarray) -> np.ndarray:
-    """Apply basic noise reduction"""
-    # Simple high-pass filter to remove low-frequency noise
-    # In production, would use more sophisticated noise reduction
-    return audio_array
+    """Apply basic noise reduction optimized for golf environments"""
+    try:
+        # High-pass filter to remove low-frequency wind noise (common on golf courses)
+        # Remove frequencies below 80Hz which are typically wind/handling noise
+        from scipy import signal
+        
+        sample_rate = 16000  # Standard for speech
+        nyquist = sample_rate / 2
+        high_cutoff = 80 / nyquist  # 80Hz normalized frequency
+        
+        # Butterworth high-pass filter
+        b, a = signal.butter(2, high_cutoff, btype='high')
+        filtered_audio = signal.filtfilt(b, a, audio_array)
+        
+        # Simple spectral subtraction for noise reduction
+        # Estimate noise from first 0.5 seconds (assumed to be background)
+        noise_samples = min(int(0.5 * sample_rate), len(filtered_audio) // 4)
+        if noise_samples > 0:
+            noise_spectrum = np.abs(np.fft.fft(filtered_audio[:noise_samples]))
+            noise_magnitude = np.mean(noise_spectrum)
+            
+            # Apply gentle noise reduction (don't over-process)
+            noise_reduction_factor = min(0.3, noise_magnitude / np.max(np.abs(filtered_audio)))
+            filtered_audio = filtered_audio * (1 - noise_reduction_factor)
+        
+        return filtered_audio.astype(np.int16)
+        
+    except ImportError:
+        logger.warning("scipy not available, using basic noise reduction")
+        # Fallback: simple high-pass using numpy
+        # Remove DC component and very low frequencies
+        filtered = audio_array - np.mean(audio_array)
+        return filtered
+    except Exception as e:
+        logger.warning(f"Noise reduction failed: {e}, returning original audio")
+        return audio_array
 
 def apply_auto_gain(audio_array: np.ndarray) -> np.ndarray:
     """Apply automatic gain control"""

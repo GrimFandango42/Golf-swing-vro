@@ -1,0 +1,36 @@
+# SwingSync AI - Personal Use Requirements
+# Simplified dependencies for individual users and small groups
+
+# Core API framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# Database (SQLite for personal use)
+sqlalchemy>=2.0.0
+
+# Authentication and security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# AI and analysis
+google-generativeai>=0.3.0
+numpy>=1.24.0
+
+# Voice processing (basic)
+scipy>=1.10.0  # For audio filtering
+
+# Configuration
+python-dotenv>=1.0.0
+
+# Data handling
+python-dateutil>=2.8.0
+
+# Optional: Enhanced voice processing
+# azure-cognitiveservices-speech  # For Azure Speech Services
+# openai  # For OpenAI TTS
+
+# Development and testing
+pytest>=7.4.0
+httpx>=0.25.0

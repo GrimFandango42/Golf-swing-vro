@@ -1,0 +1,52 @@
+{
+  "animation_type": "power_flow",
+  "duration_ms": 2000,
+  "segments": [
+    {
+      "name": "pelvis",
+      "start_time": 8.333333333333334,
+      "peak_velocity": 1087.0399894305892,
+      "color": "#FF6B6B",
+      "position": {
+        "x": 0.5,
+        "y": 0.3
+      }
+    },
+    {
+      "name": "torso",
+      "start_time": 75.0,
+      "peak_velocity": 1552.9142706151256,
+      "color": "#4ECDC4",
+      "position": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    {
+      "name": "arms",
+      "start_time": 300.0,
+      "peak_velocity": 2551.051107128235,
+      "color": "#45B7D1",
+      "position": {
+        "x": 0.5,
+        "y": 0.7
+      }
+    },
+    {
+      "name": "club",
+      "start_time": 300.0,
+      "peak_velocity": 61779.116954115605,
+      "color": "#96CEB4",
+      "position": {
+        "x": 0.7,
+        "y": 0.8
+      }
+    }
+  ],
+  "flow_effects": {
+    "show_energy_transfer": true,
+    "particle_effects": true,
+    "velocity_scaling": true,
+    "timing_indicators": true
+  }
+}
