@@ -11,6 +11,10 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
+        // TensorFlow repository for AI libraries
+        maven { url 'https://storage.googleapis.com/download.tensorflow.org/maven' }
+        // Additional Google repositories
+        maven { url 'https://maven.google.com' }
     }
 }
 rootProject.name = "Golf Swing VRO"
