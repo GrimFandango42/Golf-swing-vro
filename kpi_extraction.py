@@ -33,6 +33,14 @@ from data_structures import (
     BiomechanicalKPI
 )
 
+# Import kinematic sequence analysis functions
+try:
+    # Try to import the numpy version first
+    from kinematic_sequence import get_kinematic_sequence_kpis_cached
+except ImportError:
+    # Fall back to lite version if numpy is not available
+    from kinematic_sequence_lite import get_kinematic_sequence_kpis_cached
+
 # --- Constants ---
 # Define standard keypoint names that are expected from the pose estimation model.
 # These align with common models like MediaPipe Pose.
@@ -392,6 +400,62 @@ def calculate_shoulder_rotation_p4(swing_input: SwingVideoAnalysisInput) -> Opti
         unit="degrees",
         ideal_range=(80.0, 100.0), # e.g. ~90 degrees
         notes="Angle of shoulder line in XZ plane at P4 relative to P1. Assumes Y is vertical. Direction not determined."
+    )
+
+
+def calculate_x_factor_p4(swing_input: SwingVideoAnalysisInput) -> Optional[BiomechanicalKPI]:
+    """
+    Calculates X-Factor at P4 (Top of Backswing).
+    X-Factor is the differential between shoulder rotation and hip rotation.
+    A positive X-Factor indicates shoulders have rotated more than hips, creating stored energy.
+    """
+    p_position = "P4"
+    kpi_name = "X-Factor (Shoulder-Hip Differential) at P4"
+    
+    # Get shoulder rotation
+    shoulder_kpi = calculate_shoulder_rotation_p4(swing_input)
+    if not shoulder_kpi:
+        return None
+    shoulder_rotation = shoulder_kpi.value
+    
+    # Calculate hip rotation at P4
+    # Get P1 hip line for reference
+    lh_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_LEFT_HIP)
+    rh_p1 = get_average_keypoint_position_for_phase(swing_input, "P1", KP_RIGHT_HIP)
+    
+    # Get P4 hip line
+    lh_p4 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_LEFT_HIP)
+    rh_p4 = get_average_keypoint_position_for_phase(swing_input, p_position, KP_RIGHT_HIP)
+    
+    if not all([lh_p1 is not None, rh_p1 is not None, lh_p4 is not None, rh_p4 is not None]):
+        return None
+    
+    # Project hip lines onto XZ plane (assuming Y is vertical)
+    hip_line_p1_vec = np.array([rh_p1[0] - lh_p1[0], rh_p1[2] - lh_p1[2]])
+    hip_line_p4_vec = np.array([rh_p4[0] - lh_p4[0], rh_p4[2] - lh_p4[2]])
+    
+    if np.linalg.norm(hip_line_p1_vec) == 0 or np.linalg.norm(hip_line_p4_vec) == 0:
+        return None
+    
+    # Calculate hip rotation angle
+    unit_vec_p1_hip = hip_line_p1_vec / np.linalg.norm(hip_line_p1_vec)
+    unit_vec_p4_hip = hip_line_p4_vec / np.linalg.norm(hip_line_p4_vec)
+    
+    dot_product_hip = np.dot(unit_vec_p1_hip, unit_vec_p4_hip)
+    hip_angle_rad = math.acos(np.clip(dot_product_hip, -1.0, 1.0))
+    hip_rotation = math.degrees(hip_angle_rad)
+    
+    # Calculate X-Factor (shoulder rotation minus hip rotation)
+    x_factor = shoulder_rotation - hip_rotation
+    
+    return BiomechanicalKPI(
+        p_position=p_position,
+        kpi_name=kpi_name,
+        value=x_factor,
+        unit="degrees",
+        ideal_range=(35.0, 55.0),  # Optimal X-Factor range for power generation
+        notes=f"X-Factor = Shoulder Rotation ({shoulder_rotation:.1f}°) - Hip Rotation ({hip_rotation:.1f}°). "
+              f"Positive values indicate shoulders leading hips, creating stored energy for downswing."
     )
 
 
@@ -1609,6 +1673,10 @@ def extract_all_kpis(swing_input: SwingVideoAnalysisInput) -> List[Biomechanical
     shoulder_rot_p4 = calculate_shoulder_rotation_p4(swing_input)
     if shoulder_rot_p4: all_kpis.append(shoulder_rot_p4)
     
+    # X-Factor: Critical biomechanical measurement for power generation
+    x_factor_p4 = calculate_x_factor_p4(swing_input)
+    if x_factor_p4: all_kpis.append(x_factor_p4)
+    
     hip_sway_p4 = calculate_hip_lateral_sway_p4(swing_input)
     if hip_sway_p4: all_kpis.append(hip_sway_p4)
     
@@ -1626,6 +1694,12 @@ def extract_all_kpis(swing_input: SwingVideoAnalysisInput) -> List[Biomechanical
     # P7 KPIs (Impact)
     p7_kpis = extract_p7_kpis(swing_input)
     all_kpis.extend(p7_kpis)
+
+    # Kinematic Sequence Analysis (P5-P7): Power generation through the kinetic chain
+    # This analyzes the order and timing of body segment accelerations for optimal power transfer
+    kinematic_kpis = get_kinematic_sequence_kpis_cached(swing_input)
+    all_kpis.extend(kinematic_kpis)
+    print(f"Added {len(kinematic_kpis)} kinematic sequence KPIs for power analysis.")
 
     # P8 KPIs (Release)
     p8_kpis = extract_p8_kpis(swing_input)

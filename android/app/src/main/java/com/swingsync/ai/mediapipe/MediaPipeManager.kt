@@ -21,23 +21,37 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Manager for MediaPipe Pose detection
+ * Enhanced MediaPipe Manager for golf swing pose detection
  * Handles initialization, configuration, and pose detection operations
+ * Optimized for golf-specific movements and real-time analysis
  */
 class MediaPipeManager(private val context: Context) {
 
     companion object {
         private const val TAG = "MediaPipeManager"
         private const val POSE_LANDMARKER_TASK = "pose_landmarker_heavy.task"
-        private const val MIN_POSE_DETECTION_CONFIDENCE = 0.5f
-        private const val MIN_POSE_PRESENCE_CONFIDENCE = 0.5f
-        private const val MIN_TRACKING_CONFIDENCE = 0.5f
+        
+        // Golf-optimized confidence thresholds
+        private const val MIN_POSE_DETECTION_CONFIDENCE = 0.7f
+        private const val MIN_POSE_PRESENCE_CONFIDENCE = 0.7f
+        private const val MIN_TRACKING_CONFIDENCE = 0.6f
         private const val NUM_POSES = 1 // Track single person
+        
+        // Golf-specific pose analysis constants
+        private const val SWING_DETECTION_CONFIDENCE = 0.8f
+        private const val BODY_ANGLE_THRESHOLD = 15.0f // degrees
+        private const val FRAME_BUFFER_SIZE = 30 // frames for smoothing
     }
 
     private var poseLandmarker: PoseLandmarker? = null
     private var isInitialized = false
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
+    
+    // Golf-specific analysis components
+    private val frameBuffer = mutableListOf<FramePoseData>()
+    private val swingPhaseDetector = GolfSwingPhaseDetector()
+    private val poseAnalyzer = GolfPoseAnalyzer()
+    private val performanceOptimizer = PoseDetectionOptimizer()
 
     init {
         initializeMediaPipe()
@@ -59,10 +73,10 @@ class MediaPipeManager(private val context: Context) {
                     .setModelAssetPath(POSE_LANDMARKER_TASK)
                     .build()
                 
-                // Create pose landmarker options
+                // Create golf-optimized pose landmarker options
                 val options = PoseLandmarkerOptions.builder()
                     .setBaseOptions(baseOptions)
-                    .setRunningMode(RunningMode.IMAGE)
+                    .setRunningMode(RunningMode.VIDEO) // Changed to VIDEO for better tracking
                     .setNumPoses(NUM_POSES)
                     .setMinPoseDetectionConfidence(MIN_POSE_DETECTION_CONFIDENCE)
                     .setMinPosePresenceConfidence(MIN_POSE_PRESENCE_CONFIDENCE)

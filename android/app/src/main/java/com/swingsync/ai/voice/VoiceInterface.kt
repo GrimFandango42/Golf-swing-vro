@@ -28,6 +28,10 @@ import kotlin.coroutines.resume
 class VoiceInterface @Inject constructor(
     private val context: Context
 ) {
+    
+    // Hands-free system integration
+    private var handsFreeService: HandsFreeService? = null
+    private var spatialAudioGuide: SpatialAudioGuide? = null
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var isInitialized = false
@@ -226,6 +230,48 @@ class VoiceInterface @Inject constructor(
     
     fun processVoiceCommand(text: String): VoiceCommand {
         return VoiceCommandProcessor.processCommand(text)
+    }
+    
+    /**
+     * Integration with hands-free system
+     */
+    fun setHandsFreeService(service: HandsFreeService) {
+        handsFreeService = service
+    }
+    
+    fun setSpatialAudioGuide(guide: SpatialAudioGuide) {
+        spatialAudioGuide = guide
+    }
+    
+    /**
+     * Enhanced speak with spatial audio support
+     */
+    suspend fun speakWithSpatialAudio(text: String, position: Position3D? = null, voiceSettings: VoiceSettings = VoiceSettings()): Boolean {
+        // First speak normally
+        val success = speak(text, voiceSettings)
+        
+        // If spatial audio is available and position is provided, enhance with spatial cues
+        if (success && position != null) {
+            spatialAudioGuide?.playPositioningGuidance("", position.magnitude())
+        }
+        
+        return success
+    }
+    
+    /**
+     * Check if hands-free mode is compatible
+     */
+    fun isHandsFreeCompatible(): Boolean {
+        return SpeechRecognizer.isRecognitionAvailable(context) && isInitialized
+    }
+    
+    /**
+     * Enhanced listening with wake word integration
+     */
+    fun startHandsFreeListening() {
+        if (isHandsFreeCompatible()) {
+            startListening()
+        }
     }
     
     private fun getErrorMessage(error: Int): String {

@@ -19,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.swingsync.ai.R
+import com.swingsync.ai.ui.MagicAnalysisFragment
 import com.swingsync.ai.ui.screens.analysis.AnalysisScreen
 import com.swingsync.ai.ui.screens.coaching.CoachingScreen
 import com.swingsync.ai.ui.screens.history.HistoryScreen
@@ -36,9 +37,16 @@ fun SwingSyncNavigation(
     ) { paddingValues ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Analysis.route,
+            startDestination = Screen.MagicAnalysis.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable(Screen.MagicAnalysis.route) {
+                // Note: Since MagicAnalysisFragment is a Fragment, it would need to be wrapped
+                // in a Composable or converted to a Composable. For now, this is a placeholder.
+                // In a real implementation, you'd either convert MagicAnalysisFragment to Compose
+                // or use AndroidViewBinding to embed the Fragment
+                AnalysisScreen(navController = navController) // Temporary fallback
+            }
             composable(Screen.Analysis.route) {
                 AnalysisScreen(navController = navController)
             }
@@ -99,7 +107,7 @@ fun SwingSyncBottomNavigation(
 }
 
 val bottomNavItems = listOf(
-    Screen.Analysis,
+    Screen.MagicAnalysis,
     Screen.Coaching,
     Screen.Progress,
     Screen.History,

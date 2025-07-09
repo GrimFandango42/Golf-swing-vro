@@ -582,13 +582,16 @@ STREAMING_CONFIG = {
 
 # --- Enhanced API Setup ---
 try:
+    # Try environment variable first
     gemini_api_key = os.environ.get(API_KEY_ENV_VAR)
+    
+    # Fallback to hardcoded key if environment variable not found
     if not gemini_api_key:
-        print(f"Warning: Gemini API key not found in environment variable {API_KEY_ENV_VAR}. Feedback generation will be skipped.")
-        genai.configure(api_key="DUMMY_KEY_SO_CODE_DOESNT_CRASH")
-    else:
-        genai.configure(api_key=gemini_api_key)
-        print("Gemini 2.5 Flash API configured successfully")
+        gemini_api_key = "AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04"  # Your API key as fallback
+        print(f"Using fallback API key (environment variable {API_KEY_ENV_VAR} not set)")
+    
+    genai.configure(api_key=gemini_api_key)
+    print("Gemini 2.5 Flash API configured successfully")
 except Exception as e:
     print(f"Error configuring Gemini API: {e}. Feedback generation may fail.")
 

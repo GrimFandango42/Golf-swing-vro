@@ -9,10 +9,22 @@ sealed class Screen(
     @StringRes val titleRes: Int,
     @DrawableRes val iconRes: Int
 ) {
+    object MagicAnalysis : Screen(
+        route = "magic_analysis",
+        titleRes = R.string.magic_analysis_title,
+        iconRes = R.drawable.ic_magic_wand
+    )
+    
     object Analysis : Screen(
         route = "analysis",
         titleRes = R.string.analysis_title,
         iconRes = R.drawable.ic_camera
+    )
+    
+    object Visualization : Screen(
+        route = "visualization",
+        titleRes = R.string.visualization_title,
+        iconRes = R.drawable.ic_visualization
     )
     
     object Coaching : Screen(

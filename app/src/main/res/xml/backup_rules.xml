@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude sensitive data from backups -->
+    <exclude domain="database" />
+    <exclude domain="sharedpref" />
+    <exclude domain="file" path="recordings/" />
+    <exclude domain="file" path="cache/" />
+    <exclude domain="file" path="temp/" />
+    <exclude domain="file" path="secure_prefs/" />
+    
+    <!-- Only include basic app data -->
+    <include domain="file" path="settings.xml" />
+    <include domain="file" path="app_info.xml" />
+</full-backup-content>

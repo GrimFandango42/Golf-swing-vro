@@ -27,6 +27,17 @@
         app:layout_constraintStart_toStartOf="@+id/cameraPreview"
         app:layout_constraintTop_toTopOf="@+id/cameraPreview" />
 
+    <!-- AR Overlay View -->
+    <com.swingsync.ai.ar.AROverlayView
+        android:id="@+id/arOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/cameraPreview"
+        app:layout_constraintEnd_toEndOf="@+id/cameraPreview"
+        app:layout_constraintStart_toStartOf="@+id/cameraPreview"
+        app:layout_constraintTop_toTopOf="@+id/cameraPreview" />
+
     <!-- Status Overlay -->
     <LinearLayout
         android:id="@+id/statusOverlay"
@@ -118,6 +129,26 @@
                 android:layout_weight="1"
                 android:entries="@array/golf_clubs"
                 android:minHeight="48dp" />
+
+        </LinearLayout>
+
+        <!-- AR Toggle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnToggleAR"
+                style="@style/SwingSyncButton.Secondary"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Enable AR Mode"
+                android:drawableStart="@drawable/ic_3d_rotation"
+                android:drawablePadding="8dp" />
 
         </LinearLayout>
 

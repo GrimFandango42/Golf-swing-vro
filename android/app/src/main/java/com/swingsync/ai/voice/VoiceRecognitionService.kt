@@ -23,6 +23,12 @@ class VoiceRecognitionService : Service() {
     @Inject
     lateinit var coachingRepository: CoachingRepository
     
+    @Inject
+    lateinit var voiceCommandProcessor: VoiceCommandProcessor
+    
+    @Inject
+    lateinit var spatialAudioGuide: SpatialAudioGuide
+    
     private val binder = VoiceServiceBinder()
     
     private val _isActive = MutableStateFlow(false)
@@ -37,6 +43,8 @@ class VoiceRecognitionService : Service() {
         super.onCreate()
         // Initialize voice interface
         initializeVoiceInterface()
+        // Setup hands-free integration
+        setupHandsFreeIntegration()
     }
     
     private fun initializeVoiceInterface() {
@@ -57,8 +65,13 @@ class VoiceRecognitionService : Service() {
         }
     }
     
+    private fun setupHandsFreeIntegration() {
+        // Connect voice interface with spatial audio
+        voiceInterface.setSpatialAudioGuide(spatialAudioGuide)
+    }
+    
     suspend fun processVoiceInput(input: String): String {
-        val command = voiceInterface.processVoiceCommand(input)
+        val command = voiceCommandProcessor.processCommand(input)
         
         return when (command.type) {
             VoiceCommandType.START_PRACTICE -> {

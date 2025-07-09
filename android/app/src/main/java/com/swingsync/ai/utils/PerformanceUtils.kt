@@ -145,12 +145,13 @@ object PerformanceUtils {
     
     /**
      * Get optimal frame rate based on device performance
+     * Optimized for personal use with realistic targets
      */
     fun getOptimalFrameRate(performanceClass: DevicePerformanceClass): Int {
         return when (performanceClass) {
-            DevicePerformanceClass.HIGH -> 60
-            DevicePerformanceClass.MEDIUM -> 30
-            DevicePerformanceClass.LOW -> 24
+            DevicePerformanceClass.HIGH -> 30      // Reduced from 60fps for better battery life
+            DevicePerformanceClass.MEDIUM -> 24    // Reduced from 30fps for stability
+            DevicePerformanceClass.LOW -> 15       // Reduced from 24fps for older devices
         }
     }
     

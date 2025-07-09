@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internal storage only - no external storage access -->
+    <files-path name="internal_files" path="." />
+    <cache-path name="internal_cache" path="." />
+    
+    <!-- Secure recordings directory -->
+    <files-path name="recordings" path="recordings/" />
+    
+    <!-- Temporary files for analysis -->
+    <cache-path name="temp" path="temp/" />
+</paths>

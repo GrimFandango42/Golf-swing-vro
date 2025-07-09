@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Core camera permissions for swing analysis -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    
+    <!-- Performance and system optimizations -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    
+    <!-- Note: External storage and network permissions removed for privacy -->
+    <!-- This ensures complete offline operation and data privacy -->
+    
+    <!-- Required camera hardware features -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.flash"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.front"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.back"
+        android:required="true" />
+    
+    <!-- OpenGL ES 2.0 for 3D graphics and pose overlay -->
+    <uses-feature
+        android:glEsVersion="0x00020000"
+        android:required="true" />
+    
+    <!-- Hardware acceleration for AI processing -->
+    <uses-feature
+        android:name="android.hardware.vulkan.level"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.vulkan.version"
+        android:required="false" />
+    
+    <!-- Pixel-specific optimizations -->
+    <uses-feature
+        android:name="com.google.android.feature.PIXEL_EXPERIENCE"
+        android:required="false" />
+    
+    <!-- Microphone for voice coaching (optional) -->
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+    
+    <!-- Gyroscope for device orientation (optional) -->
+    <uses-feature
+        android:name="android.hardware.sensor.gyroscope"
+        android:required="false" />
+    
+    <!-- Accelerometer for motion detection (optional) -->
+    <uses-feature
+        android:name="android.hardware.sensor.accelerometer"
+        android:required="false" />
+
+    <application
+        android:name=".GolfSwingApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.GolfSwingVRO"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true"
+        android:extractNativeLibs="true"
+        android:usesCleartextTraffic="false"
+        tools:targetApi="34">
+        
+        <!-- Main Activity with Jetpack Compose -->
+        <activity
+            android:name=".ui.main.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            
+            <!-- Deep linking support -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="golfswing" />
+            </intent-filter>
+        </activity>
+        
+        <!-- Camera Activity for swing recording -->
+        <activity
+            android:name=".ui.camera.CameraActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustNothing" />
+        
+        <!-- Analysis Activity for swing review -->
+        <activity
+            android:name=".ui.analysis.AnalysisActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        
+        <!-- Settings Activity -->
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".ui.main.MainActivity" />
+        
+        <!-- History Activity for swing history -->
+        <activity
+            android:name=".ui.history.HistoryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".ui.main.MainActivity" />
+        
+        <!-- Progress Activity for improvement tracking -->
+        <activity
+            android:name=".ui.progress.ProgressActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".ui.main.MainActivity" />
+        
+        <!-- Coaching Activity for AI coaching interface -->
+        <activity
+            android:name=".ui.coaching.CoachingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".ui.main.MainActivity" />
+        
+        <!-- Onboarding Activity for first-time setup -->
+        <activity
+            android:name=".ui.onboarding.OnboardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
+            android:screenOrientation="portrait"
+            android:noHistory="true" />
+        
+        <!-- Foreground Service for real-time analysis -->
+        <service
+            android:name=".service.SwingAnalysisService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
+        
+        <!-- Background Service for data processing -->
+        <service
+            android:name=".service.DataProcessingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        
+        <!-- Voice Coaching Service -->
+        <service
+            android:name=".service.VoiceCoachingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+        
+        <!-- File Provider for internal file sharing -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        
+        <!-- WorkManager initialization -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup" />
+        </provider>
+        
+        <!-- MediaPipe configuration and assets -->
+        <meta-data
+            android:name="com.google.mediapipe.AssetManager"
+            android:value="true" />
+        <meta-data
+            android:name="com.google.mediapipe.pose_landmarker.task"
+            android:value="pose_landmarker_lite.task" />
+        
+        <!-- Gemini Nano on-device AI configuration -->
+        <meta-data
+            android:name="com.google.ai.edge.AICORE_ENABLED"
+            android:value="true" />
+        <meta-data
+            android:name="com.google.ai.edge.AICORE_THREADING_ENABLED"
+            android:value="true" />
+        
+        <!-- TensorFlow Lite configuration -->
+        <meta-data
+            android:name="tensorflow.lite.GPU_DELEGATE_ENABLED"
+            android:value="${enablePerformanceMonitoring}" />
+        <meta-data
+            android:name="tensorflow.lite.NNAPI_ENABLED"
+            android:value="true" />
+        
+        <!-- Performance optimization metadata -->
+        <meta-data
+            android:name="android.max_aspect"
+            android:value="2.4" />
+        <meta-data
+            android:name="android.allow_multiple_resumed_activities"
+            android:value="false" />
+        
+        <!-- Privacy and security metadata -->
+        <meta-data
+            android:name="android.enable_crash_reporting"
+            android:value="${enableCrashReporting}" />
+        <meta-data
+            android:name="android.enable_analytics"
+            android:value="${enableAnalytics}" />
+        
+        <!-- Benchmark configuration -->
+        <meta-data
+            android:name="android.benchmark.enabled"
+            android:value="${enablePerformanceMonitoring}" />
+        
+        <!-- Security configuration -->
+        <meta-data
+            android:name="android.security.net.config"
+            android:resource="@xml/network_security_config" />
+        
+        <!-- Pixel-specific optimizations -->
+        <meta-data
+            android:name="com.google.android.gms.vision.DEPENDENCIES"
+            android:value="pose" />
+        
+        <!-- Memory optimization -->
+        <meta-data
+            android:name="android.app.default_searchable"
+            android:value=".ui.main.MainActivity" />
+        
+        <!-- Accessibility support -->
+        <meta-data
+            android:name="android.app.accessibility"
+            android:resource="@xml/accessibility_service" />
+        
+        <!-- App shortcuts -->
+        <meta-data
+            android:name="android.app.shortcuts"
+            android:resource="@xml/shortcuts" />
+        
+        <!-- Kotlin coroutines configuration -->
+        <meta-data
+            android:name="kotlinx.coroutines.debug"
+            android:value="${enablePerformanceMonitoring}" />
+        
+        <!-- Room database configuration -->
+        <meta-data
+            android:name="room.schemaLocation"
+            android:value="schemas/" />
+        
+        <!-- Hilt compiler configuration -->
+        <meta-data
+            android:name="dagger.hilt.android.enableAggregatingTask"
+            android:value="true" />
+        
+        <!-- LeakCanary configuration (debug only) -->
+        <meta-data
+            android:name="leakcanary.enable"
+            android:value="false" />
+        
+        <!-- Performance monitoring -->
+        <meta-data
+            android:name="firebase.analytics.collection.enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase.crashlytics.collection.enabled"
+            android:value="false" />
+        
+    </application>
+
+</manifest>

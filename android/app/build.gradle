@@ -3,6 +3,7 @@ plugins {
     id 'org.jetbrains.kotlin.android'
     id 'kotlin-parcelize'
     id 'kotlin-kapt'
+    id 'dagger.hilt.android.plugin'
 }
 
 android {
@@ -25,8 +26,13 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable false
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
         }
     }
     
@@ -74,6 +80,20 @@ dependencies {
     // OpenGL ES
     implementation "androidx.opengl:opengl:1.0.0"
     
+    // Visualization and Charts
+    implementation "com.github.PhilJay:MPAndroidChart:v3.1.0"
+    implementation "com.github.AnyChart:AnyChart-Android:1.1.5"
+    implementation "com.squareup.picasso:picasso:2.8"
+    implementation "com.github.bumptech.glide:glide:4.16.0"
+    
+    // Animation
+    implementation "com.airbnb.android:lottie:6.1.0"
+    implementation "com.facebook.shimmer:shimmer:0.5.0"
+    
+    // Canvas and Drawing
+    implementation "androidx.graphics:graphics-core:1.0.0-beta01"
+    implementation "com.github.skydoves:colorpicker-compose:1.0.6"
+    
     // Coroutines
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
     
@@ -88,10 +108,36 @@ dependencies {
     // Permissions
     implementation "com.karumi:dexter:6.2.3"
     
+    // Hilt Dependency Injection
+    implementation "com.google.dagger:hilt-android:2.48"
+    kapt "com.google.dagger:hilt-compiler:2.48"
+    
+    // Room Database
+    implementation "androidx.room:room-runtime:2.6.1"
+    implementation "androidx.room:room-ktx:2.6.1"
+    kapt "androidx.room:room-compiler:2.6.1"
+    
+    // DataStore for preferences
+    implementation "androidx.datastore:datastore-preferences:1.0.0"
+    
+    // Work Manager for background tasks
+    implementation "androidx.work:work-runtime-ktx:2.9.0"
+    
     // Testing
     testImplementation "junit:junit:4.13.2"
+    testImplementation "org.mockito:mockito-core:5.6.0"
+    testImplementation "org.mockito.kotlin:mockito-kotlin:5.1.0"
+    testImplementation "androidx.arch.core:core-testing:2.2.0"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3"
+    testImplementation "com.google.truth:truth:1.1.4"
+    testImplementation "androidx.room:room-testing:2.6.1"
+    testImplementation "com.google.dagger:hilt-android-testing:2.48"
+    kaptTest "com.google.dagger:hilt-compiler:2.48"
+    
     androidTestImplementation "androidx.test.ext:junit:1.1.5"
     androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
+    androidTestImplementation "com.google.dagger:hilt-android-testing:2.48"
+    kaptAndroidTest "com.google.dagger:hilt-compiler:2.48"
     
     // UI Testing
     androidTestImplementation "androidx.test:runner:1.5.2"

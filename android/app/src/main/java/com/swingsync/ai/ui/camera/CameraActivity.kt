@@ -17,6 +17,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.swingsync.ai.R
 import com.swingsync.ai.SwingSyncApplication
+import com.swingsync.ai.ar.AROverlayView
+import com.swingsync.ai.ar.SwingPlaneCalculator
 import com.swingsync.ai.data.model.RecordingSession
 import com.swingsync.ai.databinding.ActivityCameraBinding
 import com.swingsync.ai.ui.analysis.AnalysisActivity
@@ -41,7 +43,7 @@ class CameraActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "CameraActivity"
-        private const val TARGET_FPS = 60f
+        private const val TARGET_FPS = 30f  // Reduced from 60fps for better performance
         private const val RECORDING_TIME_UPDATE_INTERVAL = 100L // Update every 100ms
         
         // Camera permissions
@@ -63,6 +65,10 @@ class CameraActivity : AppCompatActivity() {
     private var isRecording = false
     private var recordingStartTime = 0L
     private var currentRecordingSession: RecordingSession? = null
+    
+    // AR components
+    private var isARActive = false
+    private lateinit var arOverlay: AROverlayView
     
     // Register for permission results
     private val requestPermissionLauncher = registerForActivityResult(
@@ -97,6 +103,10 @@ class CameraActivity : AppCompatActivity() {
 
         // Setup camera executor
         cameraExecutor = Executors.newSingleThreadExecutor()
+        
+        // Initialize AR overlay
+        arOverlay = binding.arOverlay
+        setupARCallbacks()
 
         // Check permissions and start camera
         if (allPermissionsGranted()) {
@@ -118,6 +128,11 @@ class CameraActivity : AppCompatActivity() {
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // AR toggle button
+        binding.btnToggleAR.setOnClickListener {
+            toggleARMode()
         }
 
         // Recording button
@@ -145,6 +160,11 @@ class CameraActivity : AppCompatActivity() {
             result?.let {
                 binding.poseOverlay.updatePoseKeypoints(it.keypoints)
                 
+                // Update AR overlay if active
+                if (isARActive) {
+                    arOverlay.updatePoseData(it.keypoints)
+                }
+                
                 // Update status
                 val statusText = if (it.confidence > 0.7f) {
                     getString(R.string.pose_detected)
@@ -153,8 +173,13 @@ class CameraActivity : AppCompatActivity() {
                 }
                 binding.tvPoseStatus.text = statusText
                 
-                // Update frame rate
-                binding.tvFrameRate.text = getString(R.string.frame_rate, viewModel.currentFPS.value ?: 0f)
+                // Update frame rate (show AR FPS if active)
+                val fps = if (isARActive) {
+                    arOverlay.getPerformanceMetrics()["fps"] as? Float ?: 0f
+                } else {
+                    viewModel.currentFPS.value ?: 0f
+                }
+                binding.tvFrameRate.text = getString(R.string.frame_rate, fps)
                 
                 // Add to recording session if recording
                 if (isRecording) {
@@ -334,6 +359,110 @@ class CameraActivity : AppCompatActivity() {
         super.onPause()
         if (isRecording) {
             stopRecording()
+        }
+        if (isARActive) {
+            arOverlay.deactivateAR()
+        }
+    }
+    
+    // AR-specific methods
+    
+    private fun setupARCallbacks() {
+        arOverlay.setOnSwingPlaneCalculatedListener { ideal, actual ->
+            // Handle swing plane calculations
+            runOnUiThread {
+                val status = when {
+                    ideal != null && actual != null -> {
+                        val calculator = SwingPlaneCalculator()
+                        val deviation = calculator.compareSwingPlanes(ideal, actual)
+                        "Swing Plane: ${deviation.quality} (${String.format("%.1f", deviation.overallDeviation)}° deviation)"
+                    }
+                    ideal != null -> "Ideal swing plane calculated"
+                    else -> "Calculating swing plane..."
+                }
+                
+                // Update status overlay
+                binding.tvPoseStatus.text = status
+            }
+        }
+        
+        arOverlay.setOnClubPathUpdatedListener { path ->
+            // Handle club path updates
+            path?.let {
+                runOnUiThread {
+                    val pathInfo = "Path: ${it.points.size} points, ${String.format("%.1f", it.maxVelocity)} m/s max"
+                    // Could update a separate status text view for path info
+                }
+            }
+        }
+        
+        arOverlay.setOnARStatusChangedListener { isActive ->
+            runOnUiThread {
+                updateARUI(isActive)
+            }
+        }
+    }
+    
+    private fun toggleARMode() {
+        if (isARActive) {
+            deactivateAR()
+        } else {
+            activateAR()
+        }
+    }
+    
+    private fun activateAR() {
+        val selectedClub = binding.spinnerClubSelection.selectedItem.toString()
+        val handedness = SwingPlaneCalculator.Handedness.RIGHT_HANDED // Default, could be user setting
+        
+        // Show AR overlay
+        binding.arOverlay.visibility = android.view.View.VISIBLE
+        
+        // Activate AR mode
+        arOverlay.activateAR(selectedClub, handedness)
+        
+        isARActive = true
+        
+        // Update UI
+        updateARUI(true)
+        
+        // Show success message
+        Toast.makeText(this, "AR Mode Activated - Amazing 3D swing plane visualization!", Toast.LENGTH_LONG).show()
+        
+        Log.d(TAG, "AR mode activated")
+    }
+    
+    private fun deactivateAR() {
+        // Deactivate AR mode
+        arOverlay.deactivateAR()
+        
+        // Hide AR overlay
+        binding.arOverlay.visibility = android.view.View.GONE
+        
+        isARActive = false
+        
+        // Update UI
+        updateARUI(false)
+        
+        // Show message
+        Toast.makeText(this, "AR Mode Deactivated", Toast.LENGTH_SHORT).show()
+        
+        Log.d(TAG, "AR mode deactivated")
+    }
+    
+    private fun updateARUI(isActive: Boolean) {
+        if (isActive) {
+            binding.btnToggleAR.text = "Disable AR Mode"
+            binding.btnToggleAR.setBackgroundColor(ContextCompat.getColor(this, R.color.recording_button_stop))
+            
+            // Fade out pose overlay to show AR instead
+            binding.poseOverlay.alpha = 0.3f
+        } else {
+            binding.btnToggleAR.text = "Enable AR Mode"
+            binding.btnToggleAR.setBackgroundColor(ContextCompat.getColor(this, android.R.color.system_accent1_600))
+            
+            // Restore pose overlay
+            binding.poseOverlay.alpha = 1.0f
         }
     }
 }

@@ -3,7 +3,9 @@
     <string name="app_name">SwingSync AI</string>
     
     <!-- Navigation -->
+    <string name="magic_analysis_title">Magic Analysis</string>
     <string name="analysis_title">Analysis</string>
+    <string name="visualization_title">Visualization</string>
     <string name="coaching_title">Coach</string>
     <string name="progress_title">Progress</string>
     <string name="history_title">History</string>
@@ -15,6 +17,29 @@
     <string name="analyze_swing">Analyze Swing</string>
     <string name="camera_permission_required">Camera permission is required to analyze your swing</string>
     <string name="audio_permission_required">Audio permission is required for voice coaching</string>
+    
+    <!-- Magic Analysis -->
+    <string name="magic_analyze">Magic Analyze</string>
+    <string name="analyzing">Analyzing...</string>
+    <string name="hold_steady">Hold your phone steady and tap the magic button when ready</string>
+    <string name="ai_ready">AI is ready and waiting...</string>
+    <string name="recording_swing">Recording swing...</string>
+    <string name="processing_swing">Processing your swing...</string>
+    <string name="ai_working_magic">AI is working its magic!</string>
+    <string name="analysis_complete_magic">Analysis complete!</string>
+    <string name="here_what_found">Here\'s what I found:</string>
+    <string name="analyze_another_swing">Analyze Another Swing</string>
+    <string name="ready_to_detect">Ready to detect swing</string>
+    <string name="swing_detected">Swing detected!</string>
+    <string name="perfect_hold_steady">Perfect! Keep swinging!</string>
+    <string name="waiting_for_swing">Waiting for swing motion...</string>
+    <string name="hold_steady_and_swing">Hold steady and swing when ready!</string>
+    <string name="permission_denied">Camera permission is required for magic analysis</string>
+    <string name="error_camera_unavailable">Camera is unavailable</string>
+    <string name="pose_detected">Pose detected</string>
+    <string name="no_pose_detected">No pose detected</string>
+    <string name="frame_rate">%.1f FPS</string>
+    <string name="recording_duration">Recording: %s</string>
     
     <!-- Voice Interface -->
     <string name="listening">Listening...</string>
