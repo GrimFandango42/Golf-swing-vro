@@ -24,7 +24,6 @@ buildscript {
         security_crypto_version = '1.1.0-alpha06'
         
         // Performance optimization
-        benchmark_version = '1.2.2'
         leakcanary_version = '2.12'
         
         // Golf-specific analysis
@@ -42,10 +41,9 @@ buildscript {
     }
     
     dependencies {
-        classpath "com.android.tools.build:gradle:$android_gradle_version"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "com.google.dagger:hilt-android-gradle-plugin:$hilt_version"
-        classpath "androidx.benchmark:benchmark-gradle-plugin:$benchmark_version"
+        classpath "com.android.tools.build:gradle:8.2.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"
+        classpath "com.google.dagger:hilt-android-gradle-plugin:2.48"
     }
 }
 
@@ -54,17 +52,10 @@ plugins {
     id 'com.android.library' version '8.2.2' apply false
     id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
     id 'com.google.dagger.hilt.android' version '2.48' apply false
-    id 'androidx.benchmark' version '1.2.2' apply false
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-        maven { url 'https://maven.google.com' }
-    }
-}
+// Repository configuration is now in settings.gradle
+// to comply with Gradle 8.x best practices
 
 // Global configuration for all modules
 subprojects {
@@ -109,7 +100,6 @@ task checkSecurity {
 task checkPerformance {
     doLast {
         println "Running performance validation..."
-        println "✓ Benchmark suite version: $benchmark_version"
         println "✓ LeakCanary version: $leakcanary_version"
         println "✓ Memory optimization enabled"
         println "✓ Hardware acceleration enabled"

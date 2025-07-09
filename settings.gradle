@@ -6,15 +6,15 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' }
+        // TensorFlow repository for AI libraries
+        maven { url 'https://storage.googleapis.com/download.tensorflow.org/maven' }
+        // Additional Google repositories
         maven { url 'https://maven.google.com' }
-        // Repository for AICore SDK
-        maven { url 'https://developer.android.com/studio/build/maven-central' }
-        // Repository for MediaPipe
-        maven { url 'https://storage.googleapis.com/mediapipe-assets/maven' }
     }
 }
 rootProject.name = "Golf Swing VRO"
