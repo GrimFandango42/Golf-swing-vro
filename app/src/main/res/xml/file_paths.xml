@@ -4,9 +4,15 @@
     <files-path name="internal_files" path="." />
     <cache-path name="internal_cache" path="." />
     
-    <!-- Secure recordings directory -->
+    <!-- Secure recordings directory with restricted access -->
     <files-path name="recordings" path="recordings/" />
     
-    <!-- Temporary files for analysis -->
+    <!-- Temporary files for analysis with auto-cleanup -->
     <cache-path name="temp" path="temp/" />
+    
+    <!-- Secure backup directory -->
+    <files-path name="backup" path="backup/" />
+    
+    <!-- Encrypted exports directory -->
+    <files-path name="exports" path="exports/" />
 </paths>

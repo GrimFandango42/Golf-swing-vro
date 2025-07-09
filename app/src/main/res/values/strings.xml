@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Golf Swing VRO</string>
+    
+    <!-- Security Error Messages -->
+    <string name="error_encryption_failed">Encryption failed. Please try again.</string>
+    <string name="error_authentication_failed">Authentication failed. Please verify your credentials.</string>
+    <string name="error_permission_denied">Permission denied. You don\'t have access to this resource.</string>
+    <string name="error_security_violation">Security violation detected. Please contact support.</string>
+    <string name="error_data_corrupted">Data appears to be corrupted. Please reset your data.</string>
+    <string name="error_crypto_operation_failed">Cryptographic operation failed. Please restart the app.</string>
+    <string name="error_invalid_input">Invalid input provided. Please check your input.</string>
+    <string name="error_invalid_state">Invalid application state. Please restart the operation.</string>
+    <string name="error_unexpected">An unexpected error occurred. Please try again.</string>
+    <string name="error_session_expired">Your session has expired. Please authenticate again.</string>
+    
+    <!-- Security Actions -->
+    <string name="action_try_again">Try Again</string>
+    <string name="action_authenticate_again">Authenticate Again</string>
+    <string name="action_check_permissions">Check Permissions</string>
+    <string name="action_contact_support">Contact Support</string>
+    <string name="action_reset_data">Reset Data</string>
+    <string name="action_restart_app">Restart App</string>
+    <string name="action_check_input">Check Input</string>
+    <string name="action_restart_operation">Restart Operation</string>
+    
+    <!-- Authentication -->
+    <string name="auth_pin_setup">Set up your PIN</string>
+    <string name="auth_pin_enter">Enter your PIN</string>
+    <string name="auth_biometric_title">Biometric Authentication</string>
+    <string name="auth_biometric_subtitle">Use your biometric credential to access the app</string>
+    <string name="auth_biometric_negative">Cancel</string>
+    <string name="auth_session_expired">Your session has expired</string>
+    <string name="auth_locked_out">Too many failed attempts. Please try again later.</string>
+    
+    <!-- Security Settings -->
+    <string name="security_pin_enabled">PIN protection enabled</string>
+    <string name="security_biometric_enabled">Biometric authentication enabled</string>
+    <string name="security_encryption_enabled">Data encryption enabled</string>
+    <string name="security_logging_enabled">Security logging enabled</string>
+    
+    <!-- File Operations -->
+    <string name="file_encrypted">File encrypted successfully</string>
+    <string name="file_decrypted">File decrypted successfully</string>
+    <string name="file_deleted">File deleted securely</string>
+    <string name="file_backup_created">Backup created successfully</string>
+    <string name="file_backup_restored">Backup restored successfully</string>
+    
+    <!-- General -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="settings">Settings</string>
+    <string name="security">Security</string>
+    <string name="help">Help</string>
+    <string name="about">About</string>
+</resources>

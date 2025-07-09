@@ -69,6 +69,7 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
+        android:requestLegacyExternalStorage="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -78,7 +79,9 @@
         android:largeHeap="true"
         android:extractNativeLibs="true"
         android:usesCleartextTraffic="false"
-        tools:targetApi="34">
+        tools:targetApi="34"
+        android:debuggable="false"
+        android:testOnly="false">
         
         <!-- Main Activity with Jetpack Compose -->
         <activity
@@ -94,12 +97,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             
-            <!-- Deep linking support -->
+            <!-- Secure deep linking support with validation -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="golfswing" />
+                <data android:scheme="golfswing" 
+                      android:host="secure.golfswing.app" 
+                      android:pathPattern="/.*" />
             </intent-filter>
         </activity>
         
@@ -165,28 +170,33 @@
             android:name=".service.SwingAnalysisService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="camera" />
+            android:foregroundServiceType="camera"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         
         <!-- Background Service for data processing -->
         <service
             android:name=".service.DataProcessingService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         
         <!-- Voice Coaching Service -->
         <service
             android:name=".service.VoiceCoachingService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:foregroundServiceType="microphone"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         
-        <!-- File Provider for internal file sharing -->
+        <!-- Secure File Provider for internal file sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
-            android:grantUriPermissions="true">
+            android:grantUriPermissions="true"
+            android:readPermission="${applicationId}.READ_FILES"
+            android:writePermission="${applicationId}.WRITE_FILES">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
