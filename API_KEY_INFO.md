@@ -1,73 +1,104 @@
-# 🔑 SwingSync AI - API Key Information
+# 🔑 SwingSync AI - API Key Security Guide
 
-## Your Gemini API Key
+⚠️ **SECURITY WARNING**: This file previously contained exposed API keys. All sensitive information has been removed for security.
+
+## Secure API Key Management
+
+### Required Environment Variables
+
+The application requires the following environment variable to be set:
+
+```bash
+GEMINI_API_KEY=your_actual_api_key_here
 ```
-AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04
-```
 
-## Where Your Key is Saved (Multiple Backups)
+### Secure Setup Instructions
 
-1. **Primary Location**: `.env` file
-   - Path: `/data/data/com.termux/files/home/Golf-swing-vro/.env`
-   - Used by: Main application
+1. **Get Your API Key**
+   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create a new API key or use an existing one
+   - Copy the key (starts with "AIza...")
 
-2. **Backup Location**: `.env.backup` file
-   - Path: `/data/data/com.termux/files/home/Golf-swing-vro/.env.backup`
-   - Purpose: Backup if .env is deleted
+2. **Set Environment Variable**
+   ```bash
+   # For current session
+   export GEMINI_API_KEY=your_actual_key_here
+   
+   # For permanent setup (add to ~/.bashrc or ~/.zshrc)
+   echo 'export GEMINI_API_KEY=your_actual_key_here' >> ~/.bashrc
+   source ~/.bashrc
+   ```
 
-3. **Python Fallback**: `config/api_keys.py`
-   - Path: `/data/data/com.termux/files/home/Golf-swing-vro/config/api_keys.py`
-   - Has multiple fallback methods to find the key
+3. **Using .env File (Recommended)**
+   - Create a `.env` file in the project root
+   - Add: `GEMINI_API_KEY=your_actual_key_here`
+   - The `.env` file is automatically ignored by git
 
-4. **Hardcoded Fallback**: `feedback_generation.py`
-   - Path: `/data/data/com.termux/files/home/Golf-swing-vro/feedback_generation.py`
-   - Line: ~590
-   - Will use key even if environment variable not set
+### Using API Keys in Code
 
-5. **This Documentation**: `API_KEY_INFO.md`
-   - You're reading it now!
-
-## How to Use
-
-### From Python Code:
 ```python
 import os
-# Method 1: Environment variable
-api_key = os.getenv("GEMINI_API_KEY", "AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04")
-
-# Method 2: From config
 from config.api_keys import get_gemini_key
-api_key = get_gemini_key()
+
+# Secure method - raises error if not configured
+try:
+    api_key = get_gemini_key()
+    # Use api_key safely
+except EnvironmentError as e:
+    print(f"Configuration error: {e}")
+    # Handle missing key appropriately
 ```
 
-### From Command Line:
-```bash
-# Set temporarily
-export GEMINI_API_KEY=AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04
+### Testing Your Configuration
 
-# Check it's set
-echo $GEMINI_API_KEY
-```
-
-## Testing Your Key
 ```bash
+# Test API key configuration
+python config/api_keys.py
+
+# Run comprehensive API test
 python test_gemini_key.py
 ```
 
-## If You Lose It Again
-Don't worry! Check any of these files:
-- `.env`
-- `.env.backup`
-- `config/api_keys.py`
-- `feedback_generation.py` (line ~590)
-- This file (`API_KEY_INFO.md`)
+### Security Best Practices
 
-## Important Notes
-- This is a free tier Gemini API key
-- Rate limits apply (60 requests per minute)
-- Keep it secure - don't share publicly
-- Works with Gemini Pro and Gemini 2.5 Flash models
+1. **Never commit API keys to version control**
+2. **Use environment variables or secure .env files**
+3. **Rotate keys regularly**
+4. **Monitor API usage for suspicious activity**
+5. **Use separate keys for development and production**
+
+### Troubleshooting
+
+If you encounter API key issues:
+
+1. **Check Environment Variable**
+   ```bash
+   echo $GEMINI_API_KEY
+   ```
+
+2. **Verify .env File**
+   - Ensure `.env` file exists in project root
+   - Check file contains: `GEMINI_API_KEY=your_key`
+   - Verify no extra spaces or quotes
+
+3. **Test API Key Format**
+   - Should start with "AIza"
+   - Should be 39 characters long
+   - Should contain only alphanumeric characters and hyphens
+
+### Rate Limits and Usage
+
+- **Free Tier**: 60 requests per minute
+- **Paid Tier**: Higher limits available
+- **Model Support**: Gemini Pro and Gemini 2.5 Flash
+
+### Getting Help
+
+If you need assistance:
+1. Check the [API documentation](https://ai.google.dev/docs)
+2. Review the security logs
+3. Contact support if issues persist
 
 ---
-Last updated: 2025-07-07
-Key saved in 5 different locations for redundancy!
+**Last updated**: 2025-07-09
+**Security Status**: ✅ Hardcoded keys removed, secure configuration implemented

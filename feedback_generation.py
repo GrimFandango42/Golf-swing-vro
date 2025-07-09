@@ -581,19 +581,39 @@ STREAMING_CONFIG = {
 }
 
 # --- Enhanced API Setup ---
-try:
-    # Try environment variable first
-    gemini_api_key = os.environ.get(API_KEY_ENV_VAR)
-    
-    # Fallback to hardcoded key if environment variable not found
-    if not gemini_api_key:
-        gemini_api_key = "AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04"  # Your API key as fallback
-        print(f"Using fallback API key (environment variable {API_KEY_ENV_VAR} not set)")
-    
-    genai.configure(api_key=gemini_api_key)
-    print("Gemini 2.5 Flash API configured successfully")
-except Exception as e:
-    print(f"Error configuring Gemini API: {e}. Feedback generation may fail.")
+def configure_gemini_api():
+    """Configure Gemini API with secure key management"""
+    try:
+        # Try environment variable first
+        gemini_api_key = os.environ.get(API_KEY_ENV_VAR)
+        
+        # Try loading from .env file using python-dotenv
+        if not gemini_api_key:
+            try:
+                from dotenv import load_dotenv
+                load_dotenv()
+                gemini_api_key = os.environ.get(API_KEY_ENV_VAR)
+            except ImportError:
+                pass
+        
+        # Raise error if no key found
+        if not gemini_api_key:
+            raise EnvironmentError(
+                f"GEMINI_API_KEY environment variable not set. "
+                f"Please set it in your environment or .env file."
+            )
+        
+        genai.configure(api_key=gemini_api_key)
+        print("Gemini 2.5 Flash API configured successfully")
+        return True
+        
+    except Exception as e:
+        print(f"Error configuring Gemini API: {e}")
+        print("Feedback generation will be disabled until API key is configured.")
+        return False
+
+# Configure API on module import
+_api_configured = configure_gemini_api()
 
 # --- Streaming Feedback Generator ---
 class StreamingFeedbackGenerator:
@@ -721,11 +741,11 @@ def generate_feedback_for_fault(
     """
     Enhanced feedback generation for a single fault using Gemini 2.5 Flash
     """
-    if not os.environ.get(API_KEY_ENV_VAR):
+    if not _api_configured:
         print("Skipping Gemini API call: API key not configured.")
         return LLMGeneratedTip(
             explanation="Gemini API key not configured. Feedback generation skipped.",
-            tip="Please set the GEMINI_API_KEY environment variable.",
+            tip="Please set the GEMINI_API_KEY environment variable or create a .env file.",
             drill_suggestion=None
         )
     
@@ -787,7 +807,7 @@ def generate_multi_fault_feedback(
     """
     Generate comprehensive feedback for multiple faults using advanced analysis
     """
-    if not faults or not os.environ.get(API_KEY_ENV_VAR):
+    if not faults or not _api_configured:
         return None
     
     if context is None:
@@ -970,8 +990,8 @@ if __name__ == '__main__':
     }
 
     print("--- Testing Enhanced Feedback Generation with Gemini 2.5 Flash ---")
-    if not os.environ.get(API_KEY_ENV_VAR):
-        print(f"SKIPPING TEST: Environment variable {API_KEY_ENV_VAR} is not set.")
+    if not _api_configured:
+        print(f"SKIPPING TEST: API key not configured. Please set {API_KEY_ENV_VAR} environment variable.")
     else:
         print("Extracting KPIs for enhanced analysis...")
         kpis_from_faulty_swing = extract_all_kpis(sample_swing_faulty_input)

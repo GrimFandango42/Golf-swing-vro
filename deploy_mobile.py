@@ -78,7 +78,7 @@ REFRESH_TOKEN_EXPIRE_DAYS=30
 DATABASE_URL=sqlite:///./swingsync_mobile.db
 
 # AI Configuration 
-GEMINI_API_KEY=AIzaSyB_ifq6-bO_pkMki5j5ECkBd0hDAqato04
+# GEMINI_API_KEY=your_actual_api_key_here
 
 # Mobile Optimizations
 DEBUG=true
