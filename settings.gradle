@@ -6,11 +6,12 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
         maven { url 'https://maven.google.com' }
+        maven { url 'https://jitpack.io' }
         // Repository for AICore SDK
         maven { url 'https://developer.android.com/studio/build/maven-central' }
         // Repository for MediaPipe

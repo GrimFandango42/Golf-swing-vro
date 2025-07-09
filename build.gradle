@@ -57,14 +57,8 @@ plugins {
     id 'androidx.benchmark' version '1.2.2' apply false
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-        maven { url 'https://maven.google.com' }
-    }
-}
+// Repository configuration is now in settings.gradle
+// to comply with Gradle 8.x best practices
 
 // Global configuration for all modules
 subprojects {
