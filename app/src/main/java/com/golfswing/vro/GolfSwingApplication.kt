@@ -1,10 +1,10 @@
 package com.golfswing.vro
 
 import android.app.Application
-import dagger.hilt.android.HiltAndroidApp
+// import dagger.hilt.android.HiltAndroidApp  // Temporarily removed for build testing
 import timber.log.Timber
 
-@HiltAndroidApp
+// @HiltAndroidApp  // Temporarily removed for build testing
 class GolfSwingApplication : Application() {
     
     override fun onCreate() {
