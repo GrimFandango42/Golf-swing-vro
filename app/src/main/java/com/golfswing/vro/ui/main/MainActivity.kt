@@ -1,76 +1,58 @@
 package com.golfswing.vro.ui.main
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import androidx.appcompat.app.AppCompatActivity
+import android.widget.TextView
+import android.widget.Button
+import android.widget.LinearLayout
+import android.view.Gravity
+import com.golfswing.vro.R
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * Simple MainActivity for Golf Swing VRO
- * Minimal implementation to ensure successful build
+ * Using traditional Views instead of Compose to avoid dependency issues
  */
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        setContent {
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainScreen()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun MainScreen() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "🏌️ Golf Swing VRO",
-            style = MaterialTheme.typography.headlineLarge,
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = "AI-Powered Golf Swing Analysis",
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Button(
-            onClick = { /* TODO: Navigate to camera */ }
-        ) {
-            Text("Start Analysis")
+        // Create layout programmatically to avoid XML dependencies
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(64, 64, 64, 64)
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        OutlinedButton(
-            onClick = { /* TODO: Navigate to history */ }
-        ) {
-            Text("View History")
+        val titleText = TextView(this).apply {
+            text = "🏌️ Golf Swing VRO"
+            textSize = 24f
+            gravity = Gravity.CENTER
         }
+        
+        val subtitleText = TextView(this).apply {
+            text = "AI-Powered Golf Swing Analysis"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setPadding(0, 32, 0, 64)
+        }
+        
+        val startButton = Button(this).apply {
+            text = "Start Analysis"
+            setPadding(32, 16, 32, 16)
+        }
+        
+        val historyButton = Button(this).apply {
+            text = "View History"
+            setPadding(32, 16, 32, 16)
+        }
+        
+        layout.addView(titleText)
+        layout.addView(subtitleText)
+        layout.addView(startButton)
+        layout.addView(historyButton)
+        
+        setContentView(layout)
     }
 }
