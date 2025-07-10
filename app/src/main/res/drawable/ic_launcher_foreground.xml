@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Golf ball -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,34 A20,20 0 1,1 54,74 A20,20 0 1,1 54,34"
+        android:strokeWidth="2"
+        android:strokeColor="#E0E0E0"/>
+    
+    <!-- Golf club -->
+    <path
+        android:fillColor="#4CAF50"
+        android:strokeColor="#388E3C"
+        android:strokeWidth="1.5"
+        android:pathData="M50,54 L35,69 L37,71 L52,56 Z"/>
+    
+    <!-- Club head -->
+    <path
+        android:fillColor="#388E3C"
+        android:pathData="M32,66 L38,72 L40,70 L34,64 Z"/>
+        
+    <!-- VRO text -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M46,44 L48,44 L49,50 L50,44 L52,44 L50,52 L48,52 Z
+                        M54,44 L58,44 Q60,44 60,46 Q60,48 58,48 L56,48 L56,52 L54,52 Z
+                        M62,44 Q66,44 66,48 Q66,52 62,52 Q58,52 58,48 Q58,44 62,44 Z"/>
+</vector>

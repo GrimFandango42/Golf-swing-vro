@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Quick Record Shortcut -->
+    <shortcut
+        android:shortcutId="quick_record"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/shortcut_quick_record"
+        android:shortcutLongLabel="@string/shortcut_quick_record_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.golfswing.vro"
+            android:targetClass="com.golfswing.vro.ui.camera.CameraActivity">
+            <extra android:name="quick_start" android:value="true"/>
+        </intent>
+    </shortcut>
+    
+    <!-- View Progress Shortcut -->
+    <shortcut
+        android:shortcutId="view_progress"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/shortcut_view_progress"
+        android:shortcutLongLabel="@string/shortcut_view_progress_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.golfswing.vro"
+            android:targetClass="com.golfswing.vro.ui.history.HistoryActivity"/>
+    </shortcut>
+</shortcuts>
