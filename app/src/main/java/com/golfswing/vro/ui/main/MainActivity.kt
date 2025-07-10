@@ -6,7 +6,7 @@ import android.widget.TextView
 import android.widget.Button
 import android.widget.LinearLayout
 import android.view.Gravity
-import com.golfswing.vro.R
+// import com.golfswing.vro.R  // Removed to avoid potential build issues
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
