@@ -84,7 +84,7 @@
         
         <!-- Main Activity with Jetpack Compose -->
         <activity
-            android:name=".pixel.ui.main.MainActivity"
+            android:name=".ui.main.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.GolfSwingVRO.NoActionBar"
             android:screenOrientation="portrait"
