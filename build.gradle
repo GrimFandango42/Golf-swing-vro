@@ -9,14 +9,13 @@ buildscript {
         // Core Android versions
         android_gradle_version = '8.2.2'
         compile_sdk_version = 34
-        min_sdk_version = 28  // Pixel 3+ for optimal performance
+        min_sdk_version = 31  // Android 12+ for AICore SDK compatibility
         target_sdk_version = 34
         
         // Dependency versions
         hilt_version = '2.48'
         room_version = '2.6.1'
         camera_version = '1.3.1'
-        mediapipe_version = '0.10.9'
         tensorflow_version = '2.14.0'
         
         // Security and privacy

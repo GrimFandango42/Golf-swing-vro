@@ -14,7 +14,7 @@ import com.swingsync.ai.utils.ImageUtils
 import java.nio.ByteBuffer
 
 /**
- * Analyzer for real-time pose detection using MediaPipe
+ * Analyzer for real-time pose detection using ML Kit
  * Processes camera frames and extracts pose keypoints
  */
 class PoseAnalyzer(
@@ -40,11 +40,11 @@ class PoseAnalyzer(
             // Run pose detection asynchronously
             kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 try {
-                    // Detect pose using MediaPipe
+                    // Detect pose using ML Kit
                     val poseResult = mediaPipeManager.detectPose(bitmap)
                     
                     poseResult?.let { result ->
-                        // Convert MediaPipe result to our data format
+                        // Convert ML Kit result to our data format
                         val framePoseData = mediaPipeManager.convertResultToFramePoseData(result)
                         
                         // Calculate overall confidence
@@ -80,7 +80,7 @@ class PoseAnalyzer(
     }
 
     /**
-     * Convert ImageProxy to Bitmap for MediaPipe processing
+     * Convert ImageProxy to Bitmap for ML Kit processing
      */
     private fun imageProxyToBitmap(image: ImageProxy): Bitmap {
         val buffer: ByteBuffer = image.planes[0].buffer

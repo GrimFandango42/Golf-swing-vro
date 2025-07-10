@@ -77,7 +77,6 @@
         android:theme="@style/Theme.GolfSwingVRO"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
-        android:extractNativeLibs="true"
         android:usesCleartextTraffic="false"
         tools:targetApi="34"
         android:debuggable="false"

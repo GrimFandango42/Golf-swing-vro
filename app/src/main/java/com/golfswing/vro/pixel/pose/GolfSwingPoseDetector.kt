@@ -3,20 +3,17 @@ package com.golfswing.vro.pixel.pose
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.camera.core.ImageProxy
-import com.google.mediapipe.formats.proto.LandmarkProto
-import com.google.mediapipe.framework.AndroidAssetUtil
-import com.google.mediapipe.framework.AndroidPacketCreator
-import com.google.mediapipe.framework.PacketGetter
-import com.google.mediapipe.framework.Packet
-import com.google.mediapipe.framework.ProtoUtil
-import com.google.mediapipe.solutions.pose.Pose
-import com.google.mediapipe.solutions.pose.PoseOptions
-import com.google.mediapipe.solutions.pose.PoseLandmark
-import com.google.mediapipe.solutions.pose.PoseResult
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.pose.Pose
+import com.google.mlkit.vision.pose.PoseDetection
+import com.google.mlkit.vision.pose.PoseDetector
+import com.google.mlkit.vision.pose.PoseLandmark
+import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -48,7 +45,7 @@ class GolfSwingPoseDetector @Inject constructor(
     
     private val detectionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     
-    private var pose: Pose? = null
+    private var poseDetector: PoseDetector? = null
     private val _poseResult = MutableStateFlow<GolfSwingPoseResult?>(null)
     val poseResult: StateFlow<GolfSwingPoseResult?> = _poseResult.asStateFlow()
     
@@ -100,31 +97,16 @@ class GolfSwingPoseDetector @Inject constructor(
     )
 
     /**
-     * Initialize MediaPipe Pose with golf-optimized settings
+     * Initialize ML Kit Pose with golf-optimized settings
      */
     fun initialize() {
         detectionScope.launch {
             try {
-                AndroidAssetUtil.initializeNativeAssetManager(context)
-                
-                val poseOptions = PoseOptions.builder()
-                    .setStaticImageMode(false)
-                    .setModelComplexity(1) // Balance between accuracy and performance
-                    .setSmoothLandmarks(true)
-                    .setMinDetectionConfidence(0.7f)
-                    .setMinTrackingConfidence(0.5f)
+                val poseOptions = AccuratePoseDetectorOptions.Builder()
+                    .setDetectorMode(AccuratePoseDetectorOptions.STREAM_MODE)
                     .build()
 
-                pose = Pose(context, poseOptions)
-                pose?.setResultListener { result ->
-                    processPoseResultAsync(result)
-                }
-                
-                pose?.setErrorListener { error ->
-                    // Handle pose detection errors
-                    error.printStackTrace()
-                }
-                
+                poseDetector = PoseDetection.getClient(poseOptions)
                 isInitialized.set(true)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -153,7 +135,13 @@ class GolfSwingPoseDetector @Inject constructor(
         detectionScope.launch {
             try {
                 val bitmap = getReusableBitmap(imageProxy)
-                pose?.send(bitmap)
+                val inputImage = InputImage.fromBitmap(bitmap, 0)
+                
+                val pose = poseDetector?.process(inputImage)?.await()
+                pose?.let { result ->
+                    processPoseResultAsync(result)
+                }
+                
                 frameCount++
                 frameProcessingCount.incrementAndGet()
             } catch (e: Exception) {
@@ -185,7 +173,7 @@ class GolfSwingPoseDetector @Inject constructor(
     /**
      * Process pose detection result asynchronously
      */
-    private fun processPoseResultAsync(result: PoseResult) {
+    private fun processPoseResultAsync(result: Pose) {
         detectionScope.launch {
             processPoseResult(result)
         }
@@ -194,8 +182,9 @@ class GolfSwingPoseDetector @Inject constructor(
     /**
      * Process pose detection result and extract golf swing metrics
      */
-    private fun processPoseResult(result: PoseResult) {
-        val landmarks = result.poseLandmarks() ?: return
+    private fun processPoseResult(result: Pose) {
+        val landmarks = result.allPoseLandmarks
+        if (landmarks.isEmpty()) return
         
         try {
             // Store landmark history for biomechanical analysis
@@ -258,12 +247,17 @@ class GolfSwingPoseDetector @Inject constructor(
      * Analyze current swing phase with enhanced biomechanical accuracy
      */
     private fun analyzeSwingPhaseEnhanced(landmarks: List<PoseLandmark>): SwingPhase {
-        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]
-        val rightShoulder = landmarks[PoseLandmark.RIGHT_SHOULDER]
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
-        val rightHip = landmarks[PoseLandmark.RIGHT_HIP]
-        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
-        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]
+        val leftShoulder = getLandmark(landmarks, PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = getLandmark(landmarks, PoseLandmark.RIGHT_SHOULDER)
+        val leftHip = getLandmark(landmarks, PoseLandmark.LEFT_HIP)
+        val rightHip = getLandmark(landmarks, PoseLandmark.RIGHT_HIP)
+        val leftWrist = getLandmark(landmarks, PoseLandmark.LEFT_WRIST)
+        val rightWrist = getLandmark(landmarks, PoseLandmark.RIGHT_WRIST)
+        
+        if (leftShoulder == null || rightShoulder == null || leftHip == null || 
+            rightHip == null || leftWrist == null || rightWrist == null) {
+            return SwingPhase.SETUP
+        }
         
         // Calculate X-Factor for phase detection
         val xFactor = biomechanicalCalculations.calculateXFactor(leftShoulder, rightShoulder, leftHip, rightHip)
@@ -294,45 +288,27 @@ class GolfSwingPoseDetector @Inject constructor(
     }
     
     /**
-     * Legacy swing phase analysis for backward compatibility
+     * Get landmark by type from ML Kit pose result
      */
-    private fun analyzeSwingPhase(landmarks: List<PoseLandmark>): SwingPhase {
-        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]
-        val rightShoulder = landmarks[PoseLandmark.RIGHT_SHOULDER]
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
-        val rightHip = landmarks[PoseLandmark.RIGHT_HIP]
-        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
-        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]
-        
-        // Calculate key angles and positions
-        val shoulderRotation = calculateShoulderRotation(leftShoulder, rightShoulder)
-        val hipRotation = calculateHipRotation(leftHip, rightHip)
-        val armPosition = calculateArmPosition(leftWrist, rightWrist, leftShoulder, rightShoulder)
-        
-        // Determine swing phase based on body position
-        return when {
-            isInSetupPosition(landmarks) -> SwingPhase.SETUP
-            isInAddressPosition(landmarks) -> SwingPhase.ADDRESS
-            isInTakeawayPosition(armPosition, shoulderRotation) -> SwingPhase.TAKEAWAY
-            isInBackswingPosition(armPosition, shoulderRotation) -> SwingPhase.BACKSWING
-            isInTransitionPosition(landmarks) -> SwingPhase.TRANSITION
-            isInDownswingPosition(armPosition, shoulderRotation) -> SwingPhase.DOWNSWING
-            isInImpactPosition(landmarks) -> SwingPhase.IMPACT
-            isInFollowThroughPosition(armPosition, shoulderRotation) -> SwingPhase.FOLLOW_THROUGH
-            else -> SwingPhase.FINISH
-        }
+    private fun getLandmark(landmarks: List<PoseLandmark>, type: Int): PoseLandmark? {
+        return landmarks.find { it.landmarkType == type }
     }
 
     /**
      * Calculate enhanced professional swing metrics
      */
     private fun calculateEnhancedSwingMetrics(landmarks: List<PoseLandmark>): EnhancedSwingMetrics {
-        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]
-        val rightShoulder = landmarks[PoseLandmark.RIGHT_SHOULDER]
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
-        val rightHip = landmarks[PoseLandmark.RIGHT_HIP]
-        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
-        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]
+        val leftShoulder = getLandmark(landmarks, PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = getLandmark(landmarks, PoseLandmark.RIGHT_SHOULDER)
+        val leftHip = getLandmark(landmarks, PoseLandmark.LEFT_HIP)
+        val rightHip = getLandmark(landmarks, PoseLandmark.RIGHT_HIP)
+        val leftWrist = getLandmark(landmarks, PoseLandmark.LEFT_WRIST)
+        val rightWrist = getLandmark(landmarks, PoseLandmark.RIGHT_WRIST)
+        
+        if (leftShoulder == null || rightShoulder == null || leftHip == null || 
+            rightHip == null || leftWrist == null || rightWrist == null) {
+            return createDefaultEnhancedMetrics()
+        }
         
         // Calculate X-Factor (most important golf metric)
         val xFactor = biomechanicalCalculations.calculateXFactor(leftShoulder, rightShoulder, leftHip, rightHip)
@@ -453,26 +429,33 @@ class GolfSwingPoseDetector @Inject constructor(
      * Calculate comprehensive swing metrics
      */
     private fun calculateSwingMetrics(landmarks: List<PoseLandmark>): SwingMetrics {
-        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]
-        val rightShoulder = landmarks[PoseLandmark.RIGHT_SHOULDER]
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
-        val rightHip = landmarks[PoseLandmark.RIGHT_HIP]
-        val leftKnee = landmarks[PoseLandmark.LEFT_KNEE]
-        val rightKnee = landmarks[PoseLandmark.RIGHT_KNEE]
-        val nose = landmarks[PoseLandmark.NOSE]
-        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
-        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]
-        val leftElbow = landmarks[PoseLandmark.LEFT_ELBOW]
-        val rightElbow = landmarks[PoseLandmark.RIGHT_ELBOW]
+        val leftShoulder = getLandmark(landmarks, PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = getLandmark(landmarks, PoseLandmark.RIGHT_SHOULDER)
+        val leftHip = getLandmark(landmarks, PoseLandmark.LEFT_HIP)
+        val rightHip = getLandmark(landmarks, PoseLandmark.RIGHT_HIP)
+        val leftKnee = getLandmark(landmarks, PoseLandmark.LEFT_KNEE)
+        val rightKnee = getLandmark(landmarks, PoseLandmark.RIGHT_KNEE)
+        val nose = getLandmark(landmarks, PoseLandmark.NOSE)
+        val leftWrist = getLandmark(landmarks, PoseLandmark.LEFT_WRIST)
+        val rightWrist = getLandmark(landmarks, PoseLandmark.RIGHT_WRIST)
+        val leftElbow = getLandmark(landmarks, PoseLandmark.LEFT_ELBOW)
+        val rightElbow = getLandmark(landmarks, PoseLandmark.RIGHT_ELBOW)
 
         return SwingMetrics(
-            shoulderAngle = calculateShoulderAngle(leftShoulder, rightShoulder),
-            hipAngle = calculateHipAngle(leftHip, rightHip),
-            kneeFlexion = calculateKneeFlexion(leftKnee, rightKnee, leftHip, rightHip),
-            armExtension = calculateArmExtension(leftWrist, rightWrist, leftElbow, rightElbow),
-            headPosition = calculateHeadPosition(nose, leftShoulder, rightShoulder),
-            weightDistribution = calculateWeightDistribution(leftHip, rightHip, leftKnee, rightKnee),
-            clubPlane = calculateClubPlane(leftWrist, rightWrist, leftShoulder, rightShoulder),
+            shoulderAngle = if (leftShoulder != null && rightShoulder != null) 
+                calculateShoulderAngle(leftShoulder, rightShoulder) else 0f,
+            hipAngle = if (leftHip != null && rightHip != null) 
+                calculateHipAngle(leftHip, rightHip) else 0f,
+            kneeFlexion = if (leftKnee != null && rightKnee != null && leftHip != null && rightHip != null) 
+                calculateKneeFlexion(leftKnee, rightKnee, leftHip, rightHip) else 0f,
+            armExtension = if (leftWrist != null && rightWrist != null && leftElbow != null && rightElbow != null) 
+                calculateArmExtension(leftWrist, rightWrist, leftElbow, rightElbow) else 0f,
+            headPosition = if (nose != null && leftShoulder != null && rightShoulder != null) 
+                calculateHeadPosition(nose, leftShoulder, rightShoulder) else 0f,
+            weightDistribution = if (leftHip != null && rightHip != null && leftKnee != null && rightKnee != null) 
+                calculateWeightDistribution(leftHip, rightHip, leftKnee, rightKnee) else 0.5f,
+            clubPlane = if (leftWrist != null && rightWrist != null && leftShoulder != null && rightShoulder != null) 
+                calculateClubPlane(leftWrist, rightWrist, leftShoulder, rightShoulder) else 0f,
             tempo = calculateTempo(),
             balance = calculateBalance(landmarks)
         )
@@ -480,24 +463,26 @@ class GolfSwingPoseDetector @Inject constructor(
 
     // Phase detection helper methods
     private fun isInSetupPosition(landmarks: List<PoseLandmark>): Boolean {
-        // Check if player is in initial setup position
-        val nose = landmarks[PoseLandmark.NOSE]
-        val leftShoulder = landmarks[PoseLandmark.LEFT_SHOULDER]
-        val rightShoulder = landmarks[PoseLandmark.RIGHT_SHOULDER]
+        val nose = getLandmark(landmarks, PoseLandmark.NOSE)
+        val leftShoulder = getLandmark(landmarks, PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = getLandmark(landmarks, PoseLandmark.RIGHT_SHOULDER)
+        
+        if (nose == null || leftShoulder == null || rightShoulder == null) return false
         
         // Head should be relatively centered
-        val headCenter = (leftShoulder.x + rightShoulder.x) / 2
-        return abs(nose.x - headCenter) < 0.05f
+        val headCenter = (leftShoulder.position.x + rightShoulder.position.x) / 2
+        return abs(nose.position.x - headCenter) < 0.05f
     }
 
     private fun isInAddressPosition(landmarks: List<PoseLandmark>): Boolean {
-        // Check if player is addressing the ball
-        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
-        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
+        val leftWrist = getLandmark(landmarks, PoseLandmark.LEFT_WRIST)
+        val rightWrist = getLandmark(landmarks, PoseLandmark.RIGHT_WRIST)
+        val leftHip = getLandmark(landmarks, PoseLandmark.LEFT_HIP)
+        
+        if (leftWrist == null || rightWrist == null || leftHip == null) return false
         
         // Hands should be near address position
-        return leftWrist.y > leftHip.y && rightWrist.y > leftHip.y
+        return leftWrist.position.y > leftHip.position.y && rightWrist.position.y > leftHip.position.y
     }
 
     private fun isInTakeawayPosition(armPosition: Float, shoulderRotation: Float): Boolean {
@@ -518,12 +503,14 @@ class GolfSwingPoseDetector @Inject constructor(
     }
 
     private fun isInImpactPosition(landmarks: List<PoseLandmark>): Boolean {
-        // Detect impact position based on hand position and hip rotation
-        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
-        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
+        val leftWrist = getLandmark(landmarks, PoseLandmark.LEFT_WRIST)
+        val rightWrist = getLandmark(landmarks, PoseLandmark.RIGHT_WRIST)
+        val leftHip = getLandmark(landmarks, PoseLandmark.LEFT_HIP)
         
-        return abs(leftWrist.y - leftHip.y) < 0.1f && abs(rightWrist.y - leftHip.y) < 0.1f
+        if (leftWrist == null || rightWrist == null || leftHip == null) return false
+        
+        return abs(leftWrist.position.y - leftHip.position.y) < 0.1f && 
+               abs(rightWrist.position.y - leftHip.position.y) < 0.1f
     }
 
     private fun isInFollowThroughPosition(armPosition: Float, shoulderRotation: Float): Boolean {
@@ -532,21 +519,21 @@ class GolfSwingPoseDetector @Inject constructor(
 
     // Metric calculation methods
     private fun calculateShoulderAngle(leftShoulder: PoseLandmark, rightShoulder: PoseLandmark): Float {
-        val deltaY = rightShoulder.y - leftShoulder.y
-        val deltaX = rightShoulder.x - leftShoulder.x
+        val deltaY = rightShoulder.position.y - leftShoulder.position.y
+        val deltaX = rightShoulder.position.x - leftShoulder.position.x
         return atan2(deltaY, deltaX) * 180f / PI.toFloat()
     }
 
     private fun calculateHipAngle(leftHip: PoseLandmark, rightHip: PoseLandmark): Float {
-        val deltaY = rightHip.y - leftHip.y
-        val deltaX = rightHip.x - leftHip.x
+        val deltaY = rightHip.position.y - leftHip.position.y
+        val deltaX = rightHip.position.x - leftHip.position.x
         return atan2(deltaY, deltaX) * 180f / PI.toFloat()
     }
 
     private fun calculateKneeFlexion(leftKnee: PoseLandmark, rightKnee: PoseLandmark, 
                                    leftHip: PoseLandmark, rightHip: PoseLandmark): Float {
-        val leftFlexion = abs(leftKnee.y - leftHip.y)
-        val rightFlexion = abs(rightKnee.y - rightHip.y)
+        val leftFlexion = abs(leftKnee.position.y - leftHip.position.y)
+        val rightFlexion = abs(rightKnee.position.y - rightHip.position.y)
         return (leftFlexion + rightFlexion) / 2f
     }
 
@@ -559,8 +546,8 @@ class GolfSwingPoseDetector @Inject constructor(
 
     private fun calculateHeadPosition(nose: PoseLandmark, leftShoulder: PoseLandmark, 
                                     rightShoulder: PoseLandmark): Float {
-        val shoulderCenter = (leftShoulder.x + rightShoulder.x) / 2
-        return abs(nose.x - shoulderCenter)
+        val shoulderCenter = (leftShoulder.position.x + rightShoulder.position.x) / 2
+        return abs(nose.position.x - shoulderCenter)
     }
 
     private fun calculateWeightDistribution(leftHip: PoseLandmark, rightHip: PoseLandmark,
@@ -572,19 +559,13 @@ class GolfSwingPoseDetector @Inject constructor(
 
     private fun calculateClubPlane(leftWrist: PoseLandmark, rightWrist: PoseLandmark,
                                  leftShoulder: PoseLandmark, rightShoulder: PoseLandmark): Float {
-        val wristCenter = PoseLandmark.create(
-            (leftWrist.x + rightWrist.x) / 2,
-            (leftWrist.y + rightWrist.y) / 2,
-            (leftWrist.z + rightWrist.z) / 2
-        )
-        val shoulderCenter = PoseLandmark.create(
-            (leftShoulder.x + rightShoulder.x) / 2,
-            (leftShoulder.y + rightShoulder.y) / 2,
-            (leftShoulder.z + rightShoulder.z) / 2
-        )
+        val wristCenterX = (leftWrist.position.x + rightWrist.position.x) / 2
+        val wristCenterY = (leftWrist.position.y + rightWrist.position.y) / 2
+        val shoulderCenterX = (leftShoulder.position.x + rightShoulder.position.x) / 2
+        val shoulderCenterY = (leftShoulder.position.y + rightShoulder.position.y) / 2
         
-        val deltaY = wristCenter.y - shoulderCenter.y
-        val deltaX = wristCenter.x - shoulderCenter.x
+        val deltaY = wristCenterY - shoulderCenterY
+        val deltaX = wristCenterX - shoulderCenterX
         return atan2(deltaY, deltaX) * 180f / PI.toFloat()
     }
 
@@ -597,34 +578,36 @@ class GolfSwingPoseDetector @Inject constructor(
     }
 
     private fun calculateBalance(landmarks: List<PoseLandmark>): Float {
-        val leftAnkle = landmarks[PoseLandmark.LEFT_ANKLE]
-        val rightAnkle = landmarks[PoseLandmark.RIGHT_ANKLE]
-        val nose = landmarks[PoseLandmark.NOSE]
+        val leftAnkle = getLandmark(landmarks, PoseLandmark.LEFT_ANKLE)
+        val rightAnkle = getLandmark(landmarks, PoseLandmark.RIGHT_ANKLE)
+        val nose = getLandmark(landmarks, PoseLandmark.NOSE)
         
-        val ankleCenter = (leftAnkle.x + rightAnkle.x) / 2
-        return 1f - abs(nose.x - ankleCenter) // Higher value = better balance
+        if (leftAnkle == null || rightAnkle == null || nose == null) return 0.5f
+        
+        val ankleCenter = (leftAnkle.position.x + rightAnkle.position.x) / 2
+        return 1f - abs(nose.position.x - ankleCenter) // Higher value = better balance
     }
 
     // Utility methods
     private fun calculateDistance(point1: PoseLandmark, point2: PoseLandmark): Float {
-        val dx = point1.x - point2.x
-        val dy = point1.y - point2.y
-        val dz = point1.z - point2.z
+        val dx = point1.position.x - point2.position.x
+        val dy = point1.position.y - point2.position.y
+        val dz = point1.position3D.z - point2.position3D.z
         return sqrt(dx * dx + dy * dy + dz * dz)
     }
 
     private fun calculateShoulderRotation(leftShoulder: PoseLandmark, rightShoulder: PoseLandmark): Float {
-        return rightShoulder.x - leftShoulder.x
+        return rightShoulder.position.x - leftShoulder.position.x
     }
 
     private fun calculateHipRotation(leftHip: PoseLandmark, rightHip: PoseLandmark): Float {
-        return rightHip.x - leftHip.x
+        return rightHip.position.x - leftHip.position.x
     }
 
     private fun calculateArmPosition(leftWrist: PoseLandmark, rightWrist: PoseLandmark,
                                    leftShoulder: PoseLandmark, rightShoulder: PoseLandmark): Float {
-        val wristCenter = (leftWrist.x + rightWrist.x) / 2
-        val shoulderCenter = (leftShoulder.x + rightShoulder.x) / 2
+        val wristCenter = (leftWrist.position.x + rightWrist.position.x) / 2
+        val shoulderCenter = (leftShoulder.position.x + rightShoulder.position.x) / 2
         return wristCenter - shoulderCenter
     }
 
@@ -658,8 +641,8 @@ class GolfSwingPoseDetector @Inject constructor(
     // Enhanced swing phase detection methods
     private fun calculateWristHeight(leftWrist: PoseLandmark, rightWrist: PoseLandmark,
                                    leftShoulder: PoseLandmark, rightShoulder: PoseLandmark): Float {
-        val wristCenter = (leftWrist.y + rightWrist.y) / 2f
-        val shoulderCenter = (leftShoulder.y + rightShoulder.y) / 2f
+        val wristCenter = (leftWrist.position.y + rightWrist.position.y) / 2f
+        val shoulderCenter = (leftShoulder.position.y + rightShoulder.position.y) / 2f
         return wristCenter - shoulderCenter
     }
     
@@ -684,13 +667,15 @@ class GolfSwingPoseDetector @Inject constructor(
     }
     
     private fun isInImpactPositionEnhanced(landmarks: List<PoseLandmark>, xFactor: Float): Boolean {
-        val leftWrist = landmarks[PoseLandmark.LEFT_WRIST]
-        val rightWrist = landmarks[PoseLandmark.RIGHT_WRIST]
-        val leftHip = landmarks[PoseLandmark.LEFT_HIP]
-        val rightHip = landmarks[PoseLandmark.RIGHT_HIP]
+        val leftWrist = getLandmark(landmarks, PoseLandmark.LEFT_WRIST)
+        val rightWrist = getLandmark(landmarks, PoseLandmark.RIGHT_WRIST)
+        val leftHip = getLandmark(landmarks, PoseLandmark.LEFT_HIP)
+        val rightHip = getLandmark(landmarks, PoseLandmark.RIGHT_HIP)
         
-        val wristCenter = (leftWrist.y + rightWrist.y) / 2f
-        val hipCenter = (leftHip.y + rightHip.y) / 2f
+        if (leftWrist == null || rightWrist == null || leftHip == null || rightHip == null) return false
+        
+        val wristCenter = (leftWrist.position.y + rightWrist.position.y) / 2f
+        val hipCenter = (leftHip.position.y + rightHip.position.y) / 2f
         
         // Impact when hands are near hip level and X-Factor is releasing
         return abs(wristCenter - hipCenter) < 0.05f && xFactor < 20f
@@ -703,8 +688,12 @@ class GolfSwingPoseDetector @Inject constructor(
     // Helper methods for enhanced metrics
     private fun getPreviousWristPositions(): List<Pair<PoseLandmark, PoseLandmark>> {
         return synchronized(landmarkHistory) {
-            landmarkHistory.takeLast(10).map { landmarks ->
-                Pair(landmarks[PoseLandmark.LEFT_WRIST], landmarks[PoseLandmark.RIGHT_WRIST])
+            landmarkHistory.takeLast(10).mapNotNull { landmarks ->
+                val leftWrist = getLandmark(landmarks, PoseLandmark.LEFT_WRIST)
+                val rightWrist = getLandmark(landmarks, PoseLandmark.RIGHT_WRIST)
+                if (leftWrist != null && rightWrist != null) {
+                    Pair(leftWrist, rightWrist)
+                } else null
             }
         }
     }
@@ -826,7 +815,7 @@ class GolfSwingPoseDetector @Inject constructor(
         val metrics = result.enhancedMetrics
         val comparison = result.professionalComparison
         
-        return \"\"\"
+        return """
         Golf Swing Analysis - ${result.swingPhase}
         
         Core Biomechanics:
@@ -849,7 +838,7 @@ class GolfSwingPoseDetector @Inject constructor(
         - Overall Score: ${comparison.overallScore.toInt()}/10
         - Skill Level: ${comparison.benchmarkCategory}
         - Improvement Potential: ${(comparison.improvementPotential * 100).toInt()}%
-        \"\"\".trimIndent()
+        """.trimIndent()
     }
 
     /**
@@ -860,9 +849,9 @@ class GolfSwingPoseDetector @Inject constructor(
             // Cancel all coroutines
             detectionScope.cancel()
             
-            // Close MediaPipe pose
-            pose?.close()
-            pose = null
+            // Close ML Kit pose detector
+            poseDetector?.close()
+            poseDetector = null
             
             // Clean up bitmap pool
             bitmapPool.forEach { bitmap ->
