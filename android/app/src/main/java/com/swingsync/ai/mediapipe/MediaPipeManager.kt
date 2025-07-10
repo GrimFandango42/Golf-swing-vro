@@ -3,15 +3,12 @@ package com.swingsync.ai.mediapipe
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.google.mediapipe.framework.AndroidAssetUtil
-import com.google.mediapipe.framework.MediaPipeException
-import com.google.mediapipe.tasks.core.BaseOptions
-import com.google.mediapipe.tasks.vision.core.RunningMode
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerOptions
-import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
-import com.google.mediapipe.framework.image.MPImage
-import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.pose.Pose
+import com.google.mlkit.vision.pose.PoseDetection
+import com.google.mlkit.vision.pose.PoseDetector
+import com.google.mlkit.vision.pose.PoseLandmark
+import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
 import com.swingsync.ai.data.model.FramePoseData
 import com.swingsync.ai.data.model.PoseKeypoint
 import com.swingsync.ai.data.model.MediaPipePoseLandmarks
@@ -19,23 +16,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
 
 /**
- * Enhanced MediaPipe Manager for golf swing pose detection
+ * Enhanced ML Kit Manager for golf swing pose detection
  * Handles initialization, configuration, and pose detection operations
  * Optimized for golf-specific movements and real-time analysis
  */
 class MediaPipeManager(private val context: Context) {
 
     companion object {
-        private const val TAG = "MediaPipeManager"
-        private const val POSE_LANDMARKER_TASK = "pose_landmarker_heavy.task"
+        private const val TAG = "MLKitPoseManager"
         
         // Golf-optimized confidence thresholds
         private const val MIN_POSE_DETECTION_CONFIDENCE = 0.7f
         private const val MIN_POSE_PRESENCE_CONFIDENCE = 0.7f
         private const val MIN_TRACKING_CONFIDENCE = 0.6f
-        private const val NUM_POSES = 1 // Track single person
         
         // Golf-specific pose analysis constants
         private const val SWING_DETECTION_CONFIDENCE = 0.8f
@@ -43,7 +39,7 @@ class MediaPipeManager(private val context: Context) {
         private const val FRAME_BUFFER_SIZE = 30 // frames for smoothing
     }
 
-    private var poseLandmarker: PoseLandmarker? = null
+    private var poseDetector: PoseDetector? = null
     private var isInitialized = false
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     
@@ -54,45 +50,31 @@ class MediaPipeManager(private val context: Context) {
     private val performanceOptimizer = PoseDetectionOptimizer()
 
     init {
-        initializeMediaPipe()
+        initializeMLKit()
     }
 
     /**
-     * Initialize MediaPipe Pose Landmarker
+     * Initialize ML Kit Pose Detector
      */
-    private fun initializeMediaPipe() {
+    private fun initializeMLKit() {
         coroutineScope.launch {
             try {
-                Log.d(TAG, "Initializing MediaPipe Pose Landmarker")
+                Log.d(TAG, "Initializing ML Kit Pose Detector")
                 
-                // Initialize Android assets
-                AndroidAssetUtil.initializeNativeAssetManager(context)
-                
-                // Create base options
-                val baseOptions = BaseOptions.builder()
-                    .setModelAssetPath(POSE_LANDMARKER_TASK)
+                // Create golf-optimized pose detector options
+                val options = AccuratePoseDetectorOptions.Builder()
+                    .setDetectorMode(AccuratePoseDetectorOptions.STREAM_MODE)
                     .build()
                 
-                // Create golf-optimized pose landmarker options
-                val options = PoseLandmarkerOptions.builder()
-                    .setBaseOptions(baseOptions)
-                    .setRunningMode(RunningMode.VIDEO) // Changed to VIDEO for better tracking
-                    .setNumPoses(NUM_POSES)
-                    .setMinPoseDetectionConfidence(MIN_POSE_DETECTION_CONFIDENCE)
-                    .setMinPosePresenceConfidence(MIN_POSE_PRESENCE_CONFIDENCE)
-                    .setMinTrackingConfidence(MIN_TRACKING_CONFIDENCE)
-                    .setOutputSegmentationMasks(false)
-                    .build()
-                
-                // Create pose landmarker
-                poseLandmarker = PoseLandmarker.createFromOptions(context, options)
+                // Create pose detector
+                poseDetector = PoseDetection.getClient(options)
                 isInitialized = true
                 
-                Log.d(TAG, "MediaPipe Pose Landmarker initialized successfully")
+                Log.d(TAG, "ML Kit Pose Detector initialized successfully")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize MediaPipe", e)
-                throw RuntimeException("MediaPipe initialization failed", e)
+                Log.e(TAG, "Failed to initialize ML Kit", e)
+                throw RuntimeException("ML Kit initialization failed", e)
             }
         }
     }
@@ -100,71 +82,103 @@ class MediaPipeManager(private val context: Context) {
     /**
      * Detect pose from bitmap image
      */
-    suspend fun detectPose(bitmap: Bitmap): PoseLandmarkerResult? = withContext(Dispatchers.IO) {
-        if (!isInitialized || poseLandmarker == null) {
-            Log.w(TAG, "MediaPipe not initialized")
+    suspend fun detectPose(bitmap: Bitmap): Pose? = withContext(Dispatchers.IO) {
+        if (!isInitialized || poseDetector == null) {
+            Log.w(TAG, "ML Kit not initialized")
             return@withContext null
         }
 
         try {
-            // Convert bitmap to MPImage
-            val mpImage = BitmapImageBuilder(bitmap).build()
+            // Convert bitmap to InputImage
+            val inputImage = InputImage.fromBitmap(bitmap, 0)
             
             // Detect pose
-            val result = poseLandmarker?.detect(mpImage)
+            val result = poseDetector?.process(inputImage)?.await()
             
-            Log.d(TAG, "Pose detection completed, landmarks: ${result?.landmarks()?.size}")
+            Log.d(TAG, "Pose detection completed, landmarks: ${result?.allPoseLandmarks?.size}")
             return@withContext result
             
-        } catch (e: MediaPipeException) {
-            Log.e(TAG, "MediaPipe pose detection failed", e)
-            return@withContext null
         } catch (e: Exception) {
-            Log.e(TAG, "Unexpected error during pose detection", e)
+            Log.e(TAG, "ML Kit pose detection failed", e)
             return@withContext null
         }
     }
 
     /**
-     * Convert MediaPipe result to FramePoseData
+     * Convert ML Kit Pose result to FramePoseData
      */
-    fun convertResultToFramePoseData(result: PoseLandmarkerResult): FramePoseData {
+    fun convertResultToFramePoseData(pose: Pose): FramePoseData {
         val framePoseData = mutableMapOf<String, PoseKeypoint>()
         
         try {
-            // Get the first (and only) pose landmarks
-            if (result.landmarks().isNotEmpty()) {
-                val landmarks = result.landmarks()[0]
-                
-                // Map each landmark to our keypoint format
-                MediaPipePoseLandmarks.ALL_LANDMARKS.forEachIndexed { index, landmarkName ->
-                    if (index < landmarks.size) {
-                        val landmark = landmarks[index]
-                        framePoseData[landmarkName] = PoseKeypoint(
-                            x = landmark.x(),
-                            y = landmark.y(),
-                            z = landmark.z(),
-                            visibility = if (result.landmarksVisibility().isNotEmpty()) {
-                                result.landmarksVisibility()[0][index]
-                            } else {
-                                1.0f // Default visibility
-                            }
-                        )
-                    }
+            val landmarks = pose.allPoseLandmarks
+            
+            // Map ML Kit landmarks to our MediaPipe-compatible format
+            landmarks.forEach { landmark ->
+                val landmarkName = mapMLKitLandmarkToMediaPipe(landmark.landmarkType)
+                if (landmarkName != null) {
+                    framePoseData[landmarkName] = PoseKeypoint(
+                        x = landmark.position.x,
+                        y = landmark.position.y,
+                        z = landmark.position3D.z,
+                        visibility = landmark.inFrameLikelihood
+                    )
                 }
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error converting MediaPipe result", e)
+            Log.e(TAG, "Error converting ML Kit pose result", e)
         }
         
         return framePoseData
     }
 
     /**
-     * Check if MediaPipe is initialized and ready
+     * Map ML Kit landmark types to MediaPipe landmark names for compatibility
      */
-    fun isReady(): Boolean = isInitialized && poseLandmarker != null
+    private fun mapMLKitLandmarkToMediaPipe(landmarkType: Int): String? {
+        return when (landmarkType) {
+            PoseLandmark.NOSE -> MediaPipePoseLandmarks.NOSE
+            PoseLandmark.LEFT_EYE_INNER -> MediaPipePoseLandmarks.LEFT_EYE_INNER
+            PoseLandmark.LEFT_EYE -> MediaPipePoseLandmarks.LEFT_EYE
+            PoseLandmark.LEFT_EYE_OUTER -> MediaPipePoseLandmarks.LEFT_EYE_OUTER
+            PoseLandmark.RIGHT_EYE_INNER -> MediaPipePoseLandmarks.RIGHT_EYE_INNER
+            PoseLandmark.RIGHT_EYE -> MediaPipePoseLandmarks.RIGHT_EYE
+            PoseLandmark.RIGHT_EYE_OUTER -> MediaPipePoseLandmarks.RIGHT_EYE_OUTER
+            PoseLandmark.LEFT_EAR -> MediaPipePoseLandmarks.LEFT_EAR
+            PoseLandmark.RIGHT_EAR -> MediaPipePoseLandmarks.RIGHT_EAR
+            PoseLandmark.LEFT_MOUTH -> MediaPipePoseLandmarks.MOUTH_LEFT
+            PoseLandmark.RIGHT_MOUTH -> MediaPipePoseLandmarks.MOUTH_RIGHT
+            PoseLandmark.LEFT_SHOULDER -> MediaPipePoseLandmarks.LEFT_SHOULDER
+            PoseLandmark.RIGHT_SHOULDER -> MediaPipePoseLandmarks.RIGHT_SHOULDER
+            PoseLandmark.LEFT_ELBOW -> MediaPipePoseLandmarks.LEFT_ELBOW
+            PoseLandmark.RIGHT_ELBOW -> MediaPipePoseLandmarks.RIGHT_ELBOW
+            PoseLandmark.LEFT_WRIST -> MediaPipePoseLandmarks.LEFT_WRIST
+            PoseLandmark.RIGHT_WRIST -> MediaPipePoseLandmarks.RIGHT_WRIST
+            PoseLandmark.LEFT_PINKY -> MediaPipePoseLandmarks.LEFT_PINKY
+            PoseLandmark.RIGHT_PINKY -> MediaPipePoseLandmarks.RIGHT_PINKY
+            PoseLandmark.LEFT_INDEX -> MediaPipePoseLandmarks.LEFT_INDEX
+            PoseLandmark.RIGHT_INDEX -> MediaPipePoseLandmarks.RIGHT_INDEX
+            PoseLandmark.LEFT_THUMB -> MediaPipePoseLandmarks.LEFT_THUMB
+            PoseLandmark.RIGHT_THUMB -> MediaPipePoseLandmarks.RIGHT_THUMB
+            PoseLandmark.LEFT_HIP -> MediaPipePoseLandmarks.LEFT_HIP
+            PoseLandmark.RIGHT_HIP -> MediaPipePoseLandmarks.RIGHT_HIP
+            PoseLandmark.LEFT_KNEE -> MediaPipePoseLandmarks.LEFT_KNEE
+            PoseLandmark.RIGHT_KNEE -> MediaPipePoseLandmarks.RIGHT_KNEE
+            PoseLandmark.LEFT_ANKLE -> MediaPipePoseLandmarks.LEFT_ANKLE
+            PoseLandmark.RIGHT_ANKLE -> MediaPipePoseLandmarks.RIGHT_ANKLE
+            PoseLandmark.LEFT_HEEL -> MediaPipePoseLandmarks.LEFT_HEEL
+            PoseLandmark.RIGHT_HEEL -> MediaPipePoseLandmarks.RIGHT_HEEL
+            PoseLandmark.LEFT_FOOT_INDEX -> MediaPipePoseLandmarks.LEFT_FOOT_INDEX
+            PoseLandmark.RIGHT_FOOT_INDEX -> MediaPipePoseLandmarks.RIGHT_FOOT_INDEX
+            else -> null
+        }
+    }
+
+    /**
+     * Check if ML Kit is initialized and ready
+     */
+    fun isReady(): Boolean = isInitialized && poseDetector != null
 
     /**
      * Get pose detection confidence for a frame
@@ -217,16 +231,21 @@ class MediaPipeManager(private val context: Context) {
     }
 
     /**
-     * Release MediaPipe resources
+     * Release ML Kit resources
      */
     fun release() {
         try {
-            poseLandmarker?.close()
-            poseLandmarker = null
+            poseDetector?.close()
+            poseDetector = null
             isInitialized = false
-            Log.d(TAG, "MediaPipe resources released")
+            Log.d(TAG, "ML Kit resources released")
         } catch (e: Exception) {
-            Log.e(TAG, "Error releasing MediaPipe resources", e)
+            Log.e(TAG, "Error releasing ML Kit resources", e)
         }
     }
 }
+
+// Placeholder classes for golf-specific analysis components
+private class GolfSwingPhaseDetector
+private class GolfPoseAnalyzer  
+private class PoseDetectionOptimizer

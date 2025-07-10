@@ -3,10 +3,12 @@ package com.golfswing.vro.pixel.pose
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.camera.core.ImageProxy
-import com.google.mediapipe.solutions.pose.Pose
-import com.google.mediapipe.solutions.pose.PoseLandmark
-import com.google.mediapipe.solutions.pose.PoseOptions
-import com.google.mediapipe.solutions.pose.PoseResult
+import com.google.mlkit.vision.pose.Pose
+import com.google.mlkit.vision.pose.PoseDetection
+import com.google.mlkit.vision.pose.PoseDetector
+import com.google.mlkit.vision.pose.PoseLandmark
+import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -26,7 +28,7 @@ class OptimizedGolfPoseDetector @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.Default)
     
     // Core pose detection
-    private var mediapiPose: Pose? = null
+    private var poseDetector: PoseDetector? = null
     private val _poseResult = MutableStateFlow<GolfPoseResult?>(null)
     val poseResult: StateFlow<GolfPoseResult?> = _poseResult.asStateFlow()
     
