@@ -55,4 +55,13 @@
     <string name="security">Security</string>
     <string name="help">Help</string>
     <string name="about">About</string>
+    
+    <!-- Accessibility -->
+    <string name="accessibility_service_description">Golf Swing VRO accessibility service provides voice feedback and enhanced interaction for golf swing analysis</string>
+    
+    <!-- Shortcuts -->
+    <string name="shortcut_quick_record">Quick Record</string>
+    <string name="shortcut_quick_record_long">Start recording golf swing</string>
+    <string name="shortcut_view_progress">Progress</string>
+    <string name="shortcut_view_progress_long">View your golf progress</string>
 </resources>

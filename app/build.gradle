@@ -209,10 +209,9 @@ dependencies {
     implementation "com.google.mlkit:pose-detection-accurate:18.0.0-beta3"
     implementation "com.google.mlkit:pose-detection-common:18.0.0-beta3"
     
-    // TensorFlow Lite for on-device ML (using BOM for consistency)
-    implementation platform("org.tensorflow:tensorflow-lite-bom:2.14.0")
-    implementation "org.tensorflow:tensorflow-lite"
-    implementation "org.tensorflow:tensorflow-lite-gpu"
+    // TensorFlow Lite for on-device ML (explicit versions from Maven Central)
+    implementation "org.tensorflow:tensorflow-lite:2.13.0"
+    implementation "org.tensorflow:tensorflow-lite-gpu:2.13.0"
     
     // AICore SDK for Gemini Nano (Pixel-specific)
     implementation "com.google.ai.edge.aicore:aicore:0.0.1-exp01"
