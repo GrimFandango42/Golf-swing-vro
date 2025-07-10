@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId "com.golfswing.vro"
-        minSdk 28
+        minSdk 31
         targetSdk 34
         versionCode 1
         versionName "1.0.0"
@@ -99,6 +99,12 @@ android {
     
     composeOptions {
         kotlinCompilerExtensionVersion '1.5.8'
+    }
+    
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
     }
     
     packagingOptions {
@@ -203,10 +209,10 @@ dependencies {
     implementation "com.google.mlkit:pose-detection-accurate:18.0.0-beta3"
     implementation "com.google.mlkit:pose-detection-common:18.0.0-beta3"
     
-    // TensorFlow Lite for on-device ML
-    implementation "org.tensorflow:tensorflow-lite:2.14.0"
-    implementation "org.tensorflow:tensorflow-lite-gpu:2.14.0"
-    implementation "org.tensorflow:tensorflow-lite-support:0.4.4"
+    // TensorFlow Lite for on-device ML (using BOM for consistency)
+    implementation platform("org.tensorflow:tensorflow-lite-bom:2.14.0")
+    implementation "org.tensorflow:tensorflow-lite"
+    implementation "org.tensorflow:tensorflow-lite-gpu"
     
     // AICore SDK for Gemini Nano (Pixel-specific)
     implementation "com.google.ai.edge.aicore:aicore:0.0.1-exp01"
