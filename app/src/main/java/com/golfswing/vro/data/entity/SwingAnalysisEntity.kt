@@ -21,6 +21,7 @@ data class SwingAnalysisEntity(
     val phases: List<SwingPhase>,
     val biomechanics: BiomechanicsData,
     val score: SwingScore,
+    val overallScore: Float, // Denormalized for easy querying
     val recommendations: List<String>,
     val isProcessed: Boolean = false,
     val createdAt: Date = Date(),
