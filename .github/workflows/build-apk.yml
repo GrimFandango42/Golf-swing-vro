@@ -26,6 +26,8 @@ jobs:
     
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
+      with:
+        cache-disabled: true
     
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -35,14 +37,19 @@ jobs:
         curl -L https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
     
     - name: Clean project
-      run: ./gradlew clean
+      run: |
+        echo "🧹 Cleaning project..."
+        ./gradlew clean --stacktrace --info
     
     - name: Build debug APK
-      run: ./gradlew assembleDebug
+      run: |
+        echo "🏗️ Building APK..."
+        ./gradlew assembleDebug --stacktrace --info --no-daemon
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         GITHUB_ACTOR: ${{ github.actor }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false"
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
