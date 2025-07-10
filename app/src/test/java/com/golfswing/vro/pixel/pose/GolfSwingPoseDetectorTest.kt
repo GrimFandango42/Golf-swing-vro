@@ -2,7 +2,7 @@ package com.golfswing.vro.pixel.pose
 
 import android.content.Context
 import androidx.camera.core.ImageProxy
-import com.google.mediapipe.solutions.pose.PoseLandmark
+import com.google.mlkit.vision.pose.PoseLandmark
 import com.golfswing.vro.pixel.metrics.*
 import com.golfswing.vro.pixel.pose.GolfSwingPoseDetector.*
 import org.junit.Assert.*
