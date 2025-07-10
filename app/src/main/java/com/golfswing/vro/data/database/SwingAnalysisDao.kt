@@ -49,10 +49,10 @@ interface SwingAnalysisDao {
     @Query("SELECT COUNT(*) FROM swing_analyses")
     suspend fun getAnalysisCount(): Int
     
-    @Query("SELECT AVG(score.overall) FROM swing_analyses WHERE isProcessed = 1")
+    @Query("SELECT AVG(overallScore) FROM swing_analyses WHERE isProcessed = 1")
     suspend fun getAverageScore(): Float?
     
-    @Query("SELECT * FROM swing_analyses WHERE score.overall >= :minScore ORDER BY score.overall DESC")
+    @Query("SELECT * FROM swing_analyses WHERE overallScore >= :minScore ORDER BY overallScore DESC")
     fun getAnalysesWithScoreAbove(minScore: Float): Flow<List<SwingAnalysisEntity>>
 }
 

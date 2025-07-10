@@ -1,7 +1,7 @@
 package com.golfswing.vro.pixel.biomechanics
 
 import com.golfswing.vro.pixel.metrics.*
-import com.google.mediapipe.solutions.pose.PoseLandmark
+import com.google.mlkit.vision.pose.PoseLandmark
 import kotlin.math.*
 
 /**

@@ -12,7 +12,7 @@ import com.golfswing.vro.pixel.pose.GolfSwingPoseDetector
 import com.golfswing.vro.pixel.pose.GolfSwingPoseDetector.*
 import com.golfswing.vro.pixel.camera.GolfSwingCameraManager
 import com.golfswing.vro.pixel.performance.PerformanceMonitor
-import com.google.mediapipe.solutions.pose.PoseLandmark
+import com.google.mlkit.vision.pose.PoseLandmark
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
