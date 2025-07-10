@@ -12,6 +12,9 @@ import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
 import com.swingsync.ai.data.model.FramePoseData
 import com.swingsync.ai.data.model.PoseKeypoint
 import com.swingsync.ai.data.model.MediaPipePoseLandmarks
+import com.swingsync.ai.analysis.GolfSwingPhaseDetector
+import com.swingsync.ai.analysis.GolfPoseAnalyzer
+import com.swingsync.ai.analysis.PoseDetectionOptimizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
