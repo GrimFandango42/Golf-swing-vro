@@ -28,10 +28,10 @@
         <item name="android:windowContentOverlay">@null</item>
     </style>
     
-    <!-- Splash screen theme -->
-    <style name="Theme.GolfSwingVRO.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/green_500</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
-        <item name="postSplashScreenTheme">@style/Theme.GolfSwingVRO</item>
+    <!-- Splash screen theme (simplified without SplashScreen API) -->
+    <style name="Theme.GolfSwingVRO.Splash" parent="Theme.GolfSwingVRO.NoActionBar">
+        <item name="android:windowBackground">@color/green_500</item>
+        <item name="android:statusBarColor">@color/green_700</item>
+        <item name="android:navigationBarColor">@color/green_700</item>
     </style>
 </resources>
