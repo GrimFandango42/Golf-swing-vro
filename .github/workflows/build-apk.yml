@@ -24,32 +24,28 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
     
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
       with:
-        cache-disabled: true
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
     
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
-    - name: Download Gradle Wrapper
-      run: |
-        curl -L https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
-    
-    - name: Clean project
-      run: |
-        echo "🧹 Cleaning project..."
-        ./gradlew clean --stacktrace --info
+    - name: Validate Gradle wrapper
+      uses: gradle/wrapper-validation-action@v1
     
     - name: Build debug APK
       run: |
-        echo "🏗️ Building APK..."
+        echo "🏗️ Building simplified APK..."
         ./gradlew assembleDebug --stacktrace --info --no-daemon
       env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        GITHUB_ACTOR: ${{ github.actor }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false"
+        GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false -Xmx2g"
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
