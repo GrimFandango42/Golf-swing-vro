@@ -1,0 +1,55 @@
+name: Simple APK Build Test
+
+on:
+  push:
+    branches: [ feat/golf-swing-analysis-backend ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+    
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+    
+    - name: Build APK
+      run: |
+        echo "🚀 Starting simple build..."
+        ./gradlew assembleDebug --info
+        echo "✅ Build completed"
+        
+    - name: Find and list APK
+      run: |
+        echo "🔍 Searching for APK files..."
+        find . -name "*.apk" -type f -exec ls -la {} \;
+        
+    - name: Create manual release
+      run: |
+        echo "📦 Manual release creation..."
+        APK_FILE=$(find . -name "*.apk" -type f | head -1)
+        if [ -n "$APK_FILE" ]; then
+          echo "Found APK: $APK_FILE"
+          gh release create "manual-v${{ github.run_number }}" \
+            "$APK_FILE" \
+            --title "Manual Build ${{ github.run_number }}" \
+            --notes "Simple build test" \
+            --prerelease
+        else
+          echo "No APK found"
+          exit 1
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
