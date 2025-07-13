@@ -57,17 +57,19 @@ jobs:
         retention-days: 7
     
     - name: Debug Release Info
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/golf-swing-analysis-backend')
+      if: github.event_name == 'push'
       run: |
         echo "🔍 Release conditions met!"
         echo "Event: ${{ github.event_name }}"
         echo "Ref: ${{ github.ref }}"
         echo "Run number: ${{ github.run_number }}"
-        ls -la app/build/outputs/apk/debug/
+        echo "📱 APK files:"
+        ls -la app/build/outputs/apk/debug/ || echo "APK directory not found"
+        echo "🎯 Will create release: v1.0.${{ github.run_number }}"
     
     - name: Create Release
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/golf-swing-analysis-backend')
-      uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push'
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: v1.0.${{ github.run_number }}
         name: Golf Swing VRO v1.0.${{ github.run_number }}
@@ -88,6 +90,5 @@ jobs:
           ⚠️ This is a debug build for testing purposes.
         draft: false
         prerelease: true
-        files: |
-          app/build/outputs/apk/debug/app-debug.apk
+        files: app/build/outputs/apk/debug/app-debug.apk
         token: ${{ secrets.GITHUB_TOKEN }}
