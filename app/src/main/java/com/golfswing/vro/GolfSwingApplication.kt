@@ -1,6 +1,7 @@
 package com.golfswing.vro
 
 import android.app.Application
+import com.golfswing.vro.BuildConfig
 // import dagger.hilt.android.HiltAndroidApp  // Temporarily removed for build testing
 import timber.log.Timber
 
