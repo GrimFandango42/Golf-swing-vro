@@ -67,14 +67,23 @@ jobs:
         ls -la app/build/outputs/apk/debug/ || echo "APK directory not found"
         echo "🎯 Will create release: v1.0.${{ github.run_number }}"
     
-    - name: Create Release with gh CLI
+    - name: Check APK exists and create release
       if: github.event_name == 'push'
       run: |
-        echo "🚀 Creating release with gh CLI..."
-        gh release create "v1.0.${{ github.run_number }}" \
-          app/build/outputs/apk/debug/app-debug.apk \
-          --title "Golf Swing VRO v1.0.${{ github.run_number }}" \
-          --notes "🏌️ Golf Swing VRO Debug Build - AI-powered swing analysis app" \
-          --prerelease
+        echo "🔍 Checking if APK was built successfully..."
+        if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+          echo "✅ APK found! Creating release..."
+          gh release create "v1.0.${{ github.run_number }}" \
+            app/build/outputs/apk/debug/app-debug.apk \
+            --title "Golf Swing VRO v1.0.${{ github.run_number }}" \
+            --notes "🏌️ Golf Swing VRO Debug Build - AI-powered swing analysis app" \
+            --prerelease
+          echo "🎉 Release created successfully!"
+        else
+          echo "❌ APK not found! Build may have failed."
+          echo "📁 Contents of build directory:"
+          find app/build -name "*.apk" || echo "No APK files found anywhere"
+          exit 1
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
