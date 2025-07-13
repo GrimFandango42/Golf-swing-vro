@@ -6,14 +6,14 @@ import android.widget.TextView
 import android.widget.Button
 import android.widget.LinearLayout
 import android.view.Gravity
-import com.golfswing.vro.R
-import dagger.hilt.android.AndroidEntryPoint
+// import com.golfswing.vro.R  // Removed to avoid potential build issues
+// import dagger.hilt.android.AndroidEntryPoint  // Temporarily removed for build testing
 
 /**
  * Simple MainActivity for Golf Swing VRO
  * Using traditional Views instead of Compose to avoid dependency issues
  */
-@AndroidEntryPoint
+// @AndroidEntryPoint  // Temporarily removed for build testing
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -760,3 +760,99 @@ if __name__ == "__main__":
     print("- GEMINI_API_KEY (for AI feedback)")
     print("- SECRET_KEY (for JWT tokens)")
     print("- DATABASE_URL (for data persistence)")
+
+
+# Mobile Web Interface
+@app.get("/mobile", response_class=HTMLResponse)
+async def mobile_interface():
+    """Simple mobile web interface"""
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwingSync AI Mobile</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #2E7D32, #1976D2);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .subtitle { font-size: 1.2em; opacity: 0.9; margin-bottom: 30px; }
+        .feature {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #FFB300;
+        }
+        .feature h3 { margin-top: 0; color: #FFB300; }
+        .api-link {
+            background: #FFB300;
+            color: #1976D2;
+            padding: 15px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            margin: 20px 10px;
+            transition: transform 0.2s;
+        }
+        .api-link:hover { transform: scale(1.05); }
+        .status { 
+            background: rgba(76, 175, 80, 0.2);
+            border-radius: 10px;
+            padding: 10px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏌️ SwingSync AI</h1>
+        <p class="subtitle">Professional Golf Swing Analysis - Now on Mobile!</p>
+        
+        <div class="status">
+            <h3>✅ System Status: Online</h3>
+            <p>Your AI golf coach is ready!</p>
+        </div>
+        
+        <div class="feature">
+            <h3>🎯 AI Swing Analysis</h3>
+            <p>32 biomechanical KPIs including X-Factor analysis</p>
+        </div>
+        
+        <div class="feature">
+            <h3>🗣️ Voice Coaching</h3>
+            <p>6 AI coaching personalities with conversational feedback</p>
+        </div>
+        
+        <div class="feature">
+            <h3>📊 Progress Tracking</h3>
+            <p>Beautiful visualizations of your improvement journey</p>
+        </div>
+        
+        <a href="/docs" class="api-link">📖 API Documentation</a>
+        <a href="/health" class="api-link">🩺 System Health</a>
+        
+        <p style="margin-top: 40px; opacity: 0.7;">
+            🌐 Access this from any device on your network<br>
+            📱 Build the Android app for the full experience
+        </p>
+    </div>
+</body>
+</html>"""
+
+from fastapi.responses import HTMLResponse

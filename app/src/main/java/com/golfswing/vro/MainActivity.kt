@@ -18,19 +18,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
-import com.golfswing.vro.ui.navigation.GolfSwingNavigation
-import com.golfswing.vro.ui.theme.GolfSwingVroTheme
-import dagger.hilt.android.AndroidEntryPoint
-import timber.log.Timber
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     
     private val requiredPermissions = arrayOf(
         Manifest.permission.CAMERA,
-        Manifest.permission.RECORD_AUDIO,
-        Manifest.permission.READ_EXTERNAL_STORAGE,
-        Manifest.permission.WRITE_EXTERNAL_STORAGE
+        Manifest.permission.RECORD_AUDIO
     )
     
     private val requestPermissionLauncher = registerForActivityResult(
@@ -41,9 +39,9 @@ class MainActivity : ComponentActivity() {
             val isGranted = entry.value
             
             if (isGranted) {
-                Timber.d("Permission granted: $permission")
+                println("Permission granted: $permission")
             } else {
-                Timber.w("Permission denied: $permission")
+                println("Permission denied: $permission")
             }
         }
     }
@@ -55,7 +53,7 @@ class MainActivity : ComponentActivity() {
         requestPermissions()
         
         setContent {
-            GolfSwingVroTheme {
+            MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -88,12 +86,30 @@ class MainActivity : ComponentActivity() {
         }
         
         if (hasPermissions) {
-            GolfSwingNavigation()
+            // Simple welcome screen for now
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "🏌️ Golf Swing VRO - Ready!",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         } else {
             // Show permission request screen
-            PermissionRequestScreen(
-                onPermissionRequest = { requestPermissions() }
-            )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Please grant camera permissions",
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
         }
     }
 }
