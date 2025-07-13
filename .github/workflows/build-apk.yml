@@ -67,28 +67,14 @@ jobs:
         ls -la app/build/outputs/apk/debug/ || echo "APK directory not found"
         echo "🎯 Will create release: v1.0.${{ github.run_number }}"
     
-    - name: Create Release
+    - name: Create Release with gh CLI
       if: github.event_name == 'push'
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v1.0.${{ github.run_number }}
-        name: Golf Swing VRO v1.0.${{ github.run_number }}
-        body: |
-          ## 🏌️ Golf Swing VRO - Debug Build
-          
-          ### Features
-          - 🤖 AI-powered swing analysis
-          - 📊 Real-time biomechanics feedback
-          - 🔒 Enterprise-grade security
-          - 🎯 Professional coaching
-          
-          ### Installation
-          1. Download the APK below
-          2. Enable "Install from unknown sources" in Android settings
-          3. Install and enjoy!
-          
-          ⚠️ This is a debug build for testing purposes.
-        draft: false
-        prerelease: true
-        files: app/build/outputs/apk/debug/app-debug.apk
-        token: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "🚀 Creating release with gh CLI..."
+        gh release create "v1.0.${{ github.run_number }}" \
+          app/build/outputs/apk/debug/app-debug.apk \
+          --title "Golf Swing VRO v1.0.${{ github.run_number }}" \
+          --notes "🏌️ Golf Swing VRO Debug Build - AI-powered swing analysis app" \
+          --prerelease
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
