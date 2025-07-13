@@ -55,7 +55,7 @@ jobs:
         retention-days: 7
     
     - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/golf-swing-analysis-backend')
       uses: actions/create-release@v1
       id: create_release
       env:
@@ -82,7 +82,7 @@ jobs:
         prerelease: true
     
     - name: Upload Release APK
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/golf-swing-analysis-backend')
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
