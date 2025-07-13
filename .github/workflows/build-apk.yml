@@ -43,9 +43,14 @@ jobs:
     - name: Build debug APK
       run: |
         echo "🏗️ Building simplified APK..."
-        ./gradlew assembleDebug --stacktrace --info --no-daemon
-        echo "📦 Checking if APK was created..."
-        ls -la app/build/outputs/apk/debug/
+        ./gradlew clean assembleDebug --stacktrace --info --no-daemon
+        echo "📦 Build completed, checking results..."
+        echo "🔍 APK directory contents:"
+        ls -la app/build/outputs/apk/debug/ || echo "Debug APK directory doesn't exist"
+        echo "🔍 Searching all APK files:"
+        find . -name "*.apk" -type f || echo "No APK files found"
+        echo "🔍 Build directory structure:"
+        ls -la app/build/outputs/ || echo "Outputs directory doesn't exist"
       env:
         GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false -Xmx2g"
     
