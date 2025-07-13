@@ -56,13 +56,10 @@ jobs:
     
     - name: Create Release
       if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/golf-swing-analysis-backend')
-      uses: actions/create-release@v1
-      id: create_release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: v1.0.${{ github.run_number }}
-        release_name: Golf Swing VRO v1.0.${{ github.run_number }}
+        name: Golf Swing VRO v1.0.${{ github.run_number }}
         body: |
           ## 🏌️ Golf Swing VRO - Debug Build
           
@@ -80,14 +77,6 @@ jobs:
           ⚠️ This is a debug build for testing purposes.
         draft: false
         prerelease: true
-    
-    - name: Upload Release APK
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/golf-swing-analysis-backend')
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/apk/debug/app-debug.apk
-        asset_name: GolfSwingVRO-v1.0.${{ github.run_number }}.apk
-        asset_content_type: application/vnd.android.package-archive
+        files: |
+          app/build/outputs/apk/debug/app-debug.apk
+        token: ${{ secrets.GITHUB_TOKEN }}
