@@ -54,11 +54,51 @@ jobs:
       env:
         GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.caching=false -Xmx2g"
     
-    - name: Upload APK
+    - name: Verify APK and Upload Artifact
+      run: |
+        echo "🔍 Verifying APK was built successfully..."
+        if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+          echo "✅ APK found at: app/build/outputs/apk/debug/app-debug.apk"
+          ls -la app/build/outputs/apk/debug/app-debug.apk
+          echo "📦 APK size: $(du -h app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
+          echo "ARTIFACT_EXISTS=true" >> $GITHUB_ENV
+        else
+          echo "❌ APK not found! Searching for any APK files..."
+          find . -name "*.apk" -type f -exec ls -la {} \; || echo "No APK files found"
+          echo "📁 Build outputs structure:"
+          find app/build -type f -name "*.apk" || echo "No APK in build directory"
+          echo "ARTIFACT_EXISTS=false" >> $GITHUB_ENV
+        fi
+    
+    - name: Upload APK Artifact
+      if: env.ARTIFACT_EXISTS == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: golf-swing-vro-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 7
+        
+    - name: Upload Any APK Found
+      if: env.ARTIFACT_EXISTS == 'false'
+      run: |
+        echo "🔍 Attempting to find and upload any APK file..."
+        APK_FILE=$(find . -name "*.apk" -type f | head -1)
+        if [ -n "$APK_FILE" ]; then
+          echo "Found APK at: $APK_FILE"
+          mkdir -p artifact_upload
+          cp "$APK_FILE" artifact_upload/found-apk.apk
+          echo "APK_FOUND_PATH=$APK_FILE" >> $GITHUB_ENV
+        else
+          echo "❌ No APK files found anywhere"
+          exit 1
+        fi
+        
+    - name: Upload Found APK
+      if: env.ARTIFACT_EXISTS == 'false' && env.APK_FOUND_PATH != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: golf-swing-vro-found-apk
+        path: artifact_upload/found-apk.apk
         retention-days: 7
     
     - name: Debug Release Info
