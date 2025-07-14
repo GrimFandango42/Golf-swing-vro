@@ -15,6 +15,7 @@
     <string name="start_recording">Start Recording</string>
     <string name="stop_recording">Stop Recording</string>
     <string name="analyze_swing">Analyze Swing</string>
+    <string name="button_start_analysis">Analyze</string>
     <string name="camera_permission_required">Camera permission is required to analyze your swing</string>
     <string name="audio_permission_required">Audio permission is required for voice coaching</string>
     

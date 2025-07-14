@@ -5,11 +5,13 @@ import android.util.Log
 import com.swingsync.ai.data.repository.SwingAnalysisRepository
 import com.swingsync.ai.mediapipe.MediaPipeManager
 import com.swingsync.ai.network.ApiClient
+import dagger.hilt.android.HiltAndroidApp
 
 /**
  * Application class for SwingSync AI
  * Handles global initialization and dependency injection
  */
+@HiltAndroidApp
 class SwingSyncApplication : Application() {
     
     companion object {

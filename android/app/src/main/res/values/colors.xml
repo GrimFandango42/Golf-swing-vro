@@ -44,4 +44,8 @@
     <!-- Recording button colors -->
     <color name="recording_button">#FF6B35</color>
     <color name="recording_button_stop">#F44336</color>
+    
+    <!-- Camera overlay colors -->
+    <color name="camera_overlay_background">#80000000</color>
+    <color name="recording_indicator">#FF0000</color>
 </resources>

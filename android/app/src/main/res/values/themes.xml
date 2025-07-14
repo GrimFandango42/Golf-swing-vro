@@ -16,4 +16,36 @@
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/Theme.SwingSyncAI</item>
     </style>
+    
+    <style name="Theme.SwingSyncAI.NoActionBar" parent="Theme.SwingSyncAI">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+    
+    <!-- Text Styles -->
+    <style name="SwingSyncText">
+        <item name="android:textColor">@color/black</item>
+    </style>
+    
+    <style name="SwingSyncText.Caption" parent="SwingSyncText">
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+    
+    <style name="SwingSyncText.Body" parent="SwingSyncText">
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+    
+    <!-- Button Styles -->
+    <style name="SwingSyncButton" parent="Widget.Material3.Button">
+        <item name="android:backgroundTint">@color/golf_green</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+    
+    <style name="SwingSyncButton.Secondary" parent="SwingSyncButton">
+        <item name="android:backgroundTint">@color/golf_blue</item>
+    </style>
 </resources>
